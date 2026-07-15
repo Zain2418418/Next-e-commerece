@@ -36,7 +36,7 @@ export async function POST(req: Request) {
       host: 'smtp-relay.brevo.com',
       port: 587,
       auth: {
-        user: 'aapki_brevo_registered_email@gmail.com', // Jis email se Brevo account banaya hai
+        user: 'zainulabedeen2418@gmail.com', // Jis email se Brevo account banaya hai
         pass: process.env.BREVO_API_KEY, // Brevo API Key
       },
     });
