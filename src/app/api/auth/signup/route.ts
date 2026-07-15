@@ -4,8 +4,7 @@ import User from '@/models/User';
 import crypto from 'crypto';
 import { Resend } from 'resend';
 
-// Resend initialization
-const resend = new Resend(process.env.RESEND_API_KEY);
+// ❌ YAHAN SE RESEND INITALIZATION KO REMOVE KAR DEIN (DO NOT INITIALIZE HERE)
 
 export async function POST(req: Request) {
   try {
@@ -38,28 +37,36 @@ export async function POST(req: Request) {
     const domain = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const verificationUrl = `${domain}/api/auth/verify?token=${verificationToken}`;
 
+    // ✅ RESEND KO FUNCTION KE ANDAR INITIALIZE KAREIN (TAAKE BUILD CRASH NA HO)
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+      console.error("Resend API Key is missing in environment variables.");
+    }
+    const resend = new Resend(apiKey || 'temp_key_for_build');
+
     // SEND REAL EMAIL USING RESEND
     try {
-      await resend.emails.send({
-        from: 'onboarding@resend.dev', // Resend ka default free domain
-        to: email, // Jis email se user ne signup kiya hai
-        subject: 'Verify Your Email Address - E-SHOP',
-        html: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; rounded: 12px;">
-            <h2 style="color: #111; font-weight: 800; letter-spacing: -0.5px;">Welcome to E-SHOP!</h2>
-            <p style="color: #666; line-height: 1.6;">Thank you for registering. Please verify your email address to active your account and explore premium shopping.</p>
-            <div style="margin: 32px 0;">
-              <a href="${verificationUrl}" style="background-color: #000; color: #fff; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 8px; display: inline-block;">
-                Verify Email Address
-              </a>
+      if (apiKey) {
+        await resend.emails.send({
+          from: 'onboarding@resend.dev', // Resend ka default free domain
+          to: email, // Jis email se user ne signup kiya hai
+          subject: 'Verify Your Email Address - E-SHOP',
+          html: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 12px;">
+              <h2 style="color: #111; font-weight: 800; letter-spacing: -0.5px;">Welcome to E-SHOP!</h2>
+              <p style="color: #666; line-height: 1.6;">Thank you for registering. Please verify your email address to activate your account and explore premium shopping.</p>
+              <div style="margin: 32px 0;">
+                <a href="${verificationUrl}" style="background-color: #000; color: #fff; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 8px; display: inline-block;">
+                  Verify Email Address
+                </a>
+              </div>
+              <p style="color: #999; font-size: 12px;">If you didn't request this email, you can safely ignore it.</p>
             </div>
-            <p style="color: #999; font-size: 12px;">If you didn't request this email, you can safely ignore it.</p>
-          </div>
-        `,
-      });
+          `,
+        });
+      }
     } catch (emailError: any) {
       console.error('Email sending failed:', emailError);
-      // user register ho chuka hai, is liye hum response return kar sakte hain
     }
 
     return NextResponse.json({ 
