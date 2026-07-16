@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import User from '@/models/User';
-import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 
 export async function POST(req: Request) {
@@ -13,63 +12,59 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'All fields are required.' }, { status: 400 });
     }
 
-    // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return NextResponse.json({ success: false, error: 'Email already registered.' }, { status: 400 });
     }
 
-    // Verification Token generate karein
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    
-    // Naya user create karein
+    // 🔢 6-Digit Secure OTP Generate karein
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 Minutes validity
+
+    // Naya user save karein (isVerified: false rahega)
     const newUser = await User.create({
       name,
       email,
-      password,
+      password, // Note: ensure password hashing is done in pre-save or here
       isVerified: false,
-      verificationToken,
+      otp,
+      otpExpires,
     });
 
-    const domain = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const verificationUrl = `${domain}/api/auth/verify?token=${verificationToken}`;
-
-    // 📧 INSTANT GMAIL SMTP VIA NODEMAILER
+    // 📧 Send OTP via Gmail SMTP
     try {
       const transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
-          user: process.env.GMAIL_USER,       // Aapki Gmail address
-          pass: process.env.GMAIL_APP_PASS,   // Google App Password (16 chars)
+          user: process.env.GMAIL_USER,
+          pass: process.env.GMAIL_APP_PASS,
         },
       });
 
       await transporter.sendMail({
         from: `"E-SHOP" <${process.env.GMAIL_USER}>`,
-        to: email, // Dynamic User's Email
-        subject: 'Verify Your Email Address - E-SHOP',
+        to: email,
+        subject: 'Verify Your Account - One-Time Password (OTP)',
         html: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 12px;">
-            <h2 style="color: #111; font-weight: 800; letter-spacing: -0.5px;">Welcome to E-SHOP!</h2>
-            <p style="color: #666; line-height: 1.6;">Thank you for registering. Please verify your email address to active your account.</p>
-            <div style="margin: 32px 0;">
-              <a href="${verificationUrl}" style="background-color: #000; color: #fff; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 8px; display: inline-block;">
-                Verify Email Address
-              </a>
+          <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 12px; text-align: center;">
+            <h2 style="color: #111; font-weight: 800; margin-bottom: 5px;">Verify Your Email</h2>
+            <p style="color: #666; font-size: 14px;">Use the security code below to active your E-SHOP account. This code is valid for 10 minutes.</p>
+            <div style="margin: 24px 0; background-color: #f4f4f5; padding: 16px; border-radius: 8px; display: inline-block;">
+              <span style="font-size: 32px; font-weight: 800; letter-spacing: 6px; color: #000;">${otp}</span>
             </div>
-            <p style="color: #999; font-size: 12px;">If you didn't request this email, you can safely ignore it.</p>
+            <p style="color: #999; font-size: 11px;">If you didn't sign up for this account, ignore this email.</p>
           </div>
         `,
       });
 
-      console.log('Email sent successfully via Gmail SMTP!');
+      console.log('OTP Email Sent Successfully!');
     } catch (emailError: any) {
-      console.error('Nodemailer Gmail Error:', emailError);
+      console.error('Nodemailer OTP Error:', emailError);
     }
 
     return NextResponse.json({ 
       success: true, 
-      message: 'User registered successfully! Please check your email inbox.' 
+      message: 'OTP sent to your email. Please verify your account.' 
     }, { status: 201 });
 
   } catch (error: any) {
