@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import User from '@/models/User';
 import nodemailer from 'nodemailer';
+import bcrypt from 'bcryptjs'; // 👈 Bcrypt import karein
 
 export async function POST(req: Request) {
   try {
@@ -17,15 +18,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Email already registered.' }, { status: 400 });
     }
 
-    // 🔢 6-Digit Secure OTP Generate karein
+    // 🔒 YAHAN PASSWORD MANUAL HASH KAREIN (100% Bug-Free)
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // 🔢 6-Digit Secure OTP Generate
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 Minutes validity
 
-    // Naya user save karein (isVerified: false rahega)
+    // Naya user secure hashed password ke sath save karein
     const newUser = await User.create({
       name,
       email,
-      password, // Note: ensure password hashing is done in pre-save or here
+      password: hashedPassword, // 👈 Hashed password save ho raha hai!
       isVerified: false,
       otp,
       otpExpires,
@@ -52,13 +57,10 @@ export async function POST(req: Request) {
             <div style="margin: 24px 0; background-color: #f4f4f5; padding: 16px; border-radius: 8px; display: inline-block;">
               <span style="font-size: 32px; font-weight: 800; letter-spacing: 6px; color: #000;">${otp}</span>
             </div>
-            <p style="color: #999; font-size: 11px;">If you didn't sign up for this account, ignore this email.</p>
           </div>
         `,
       });
-
-      console.log('OTP Email Sent Successfully!');
-    } catch (emailError: any) {
+    } catch (emailError) {
       console.error('Nodemailer OTP Error:', emailError);
     }
 
