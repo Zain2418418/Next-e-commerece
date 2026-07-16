@@ -27,13 +27,14 @@ export default function SignupPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || 'Something went wrong');
+        // ✅ FIXED: Backend se aane wale precise error (e.g. "Email already registered.") ko priority dega.
+        throw new Error(data.error || data.message || 'Something went wrong');
       }
 
       setSuccess(data.message);
       setFormData({ name: '', email: '', password: '' });
       
-      // Console mein check karne ke liye reminder kyuki mock link terminal mein print ho rha hai
+      // Console mein check karne ke liye reminder
       console.log('Check your backend terminal console for the verification link!');
     } catch (err: any) {
       setError(err.message);
