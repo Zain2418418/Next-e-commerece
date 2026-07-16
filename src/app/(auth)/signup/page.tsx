@@ -149,7 +149,15 @@ export default function SignupPage() {
               />
             </div>
           </div>
-
+          {/* 🔗 NEW SECTION ADD (Forgot Password Link) */}
+          <div className="flex items-center justify-end mt-2">
+            <Link
+              href="/forgot-password"
+              className="text-xs font-medium text-blue-600 hover:text-blue-500 hover:underline transition-all"
+            >
+              Forgot password?
+            </Link>
+          </div>
           <div>
             <button
               type="submit"
