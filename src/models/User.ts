@@ -13,7 +13,7 @@ const UserSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // 🔒 DATABASE MEIN SAVE HONE SE PEHLE PASSWORD HASH KARNA:
-UserSchema.pre('save', async function (next) {
+UserSchema.pre('save', async function (next: any) {
   // Agar password modify nahi hua toh next step par jayein
   if (!this.isModified('password')) return next();
   
