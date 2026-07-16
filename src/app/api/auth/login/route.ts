@@ -1,81 +1,66 @@
 import { NextResponse } from 'next/server';
-import bcryptjs from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import dbConnect from '@/lib/dbConnect';
 import User from '@/models/User';
+import bcrypt from 'bcryptjs';
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
     await dbConnect();
+    const { email, password } = await req.json();
 
-    const { email, password } = await request.json();
-
-    // 1. Validation
+    // 1. Inputs validation
     if (!email || !password) {
       return NextResponse.json(
-        { message: 'Email and password are required.' },
+        { success: false, error: 'Email and password are required.' }, 
         { status: 400 }
       );
     }
 
-    // 2. Find user by email
+    // 2. Find User in DB
     const user = await User.findOne({ email });
     if (!user) {
       return NextResponse.json(
-        { message: 'Invalid email or password.' },
-        { status: 400 }
+        { success: false, error: 'Invalid email or password.' }, 
+        { status: 401 }
       );
     }
 
-    // 3. Check if email is verified
+    // 3. Check if user has verified their email (🚨 MOST IMPORTANT)
     if (!user.isVerified) {
       return NextResponse.json(
-        { message: 'Please verify your email before logging in.' },
+        { 
+          success: false, 
+          error: 'Your email is not verified yet. Please check your inbox for OTP.',
+          notVerified: true // Frontend check ke liye taake chahein toh seedha OTP page par redirect kar skein
+        }, 
         { status: 403 }
       );
     }
 
-    // 4. Check if password is correct
-    const isPasswordMatch = await bcryptjs.compare(password, user.password);
+    // 4. Match password with Hashed password in DB
+    const isPasswordMatch = await bcrypt.compare(password, user.password);
     if (!isPasswordMatch) {
       return NextResponse.json(
-        { message: 'Invalid email or password.' },
-        { status: 400 }
+        { success: false, error: 'Invalid email or password.' }, 
+        { status: 401 }
       );
     }
 
-    // 5. Create JWT Token Payload
-    const tokenData = {
-      id: user._id,
-      name: user.name,
-      email: user.email,
-    };
-
-    // 6. Sign Token
-    const token = jwt.sign(tokenData, process.env.JWT_SECRET!, {
-      expiresIn: '1d', // 1 day expiry
-    });
-
-    // 7. Create Response and Set HTTP-only Cookie for security
-    const response = NextResponse.json(
-      { message: 'Login successful!', success: true },
-      { status: 200 }
-    );
-
-    response.cookies.set('token', token, {
-      httpOnly: true, // Safe from XSS attacks (client-side JS can't touch it)
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 24 * 60 * 60, // 1 day in seconds
-      path: '/',
-    });
-
-    return response;
+    // 5. Success Login Response (Yahan aap JWT token ya session cookies set kar sakte hain)
+    return NextResponse.json({
+      success: true,
+      message: 'Login successful!',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      }
+    }, { status: 200 });
 
   } catch (error: any) {
-    console.error('Login Error:', error);
+    console.error('Login API Error:', error);
     return NextResponse.json(
-      { message: 'Internal Server Error', error: error.message },
+      { success: false, error: 'Internal Server Error. Please try again later.' }, 
       { status: 500 }
     );
   }
