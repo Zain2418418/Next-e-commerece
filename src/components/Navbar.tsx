@@ -1,12 +1,60 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Menu, X, ShoppingBag, User, Sparkles } from "lucide-react";
+import { Menu, X, ShoppingBag, User, Sparkles, Heart } from "lucide-react";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
+  const [wishlistCount, setWishlistCount] = useState(0);
+
+  useEffect(() => {
+    // Function to update Cart count
+    const updateCartCount = () => {
+      try {
+        const savedCart = JSON.parse(localStorage.getItem("cart") || "[]");
+        const totalItems = savedCart.reduce(
+          (sum: number, item: any) => sum + (item.quantity || 1),
+          0
+        );
+        setCartCount(totalItems);
+      } catch (e) {
+        setCartCount(0);
+      }
+    };
+
+    // Function to update Wishlist count
+    const updateWishlistCount = () => {
+      try {
+        const savedWishlist = JSON.parse(
+          localStorage.getItem("wishlist") || "[]"
+        );
+        setWishlistCount(savedWishlist.length);
+      } catch (e) {
+        setWishlistCount(0);
+      }
+    };
+
+    // Initial check
+    updateCartCount();
+    updateWishlistCount();
+
+    // Event listeners for real-time updates
+    window.addEventListener("storage", updateCartCount);
+    window.addEventListener("cart-updated", updateCartCount);
+
+    window.addEventListener("storage", updateWishlistCount);
+    window.addEventListener("wishlist-updated", updateWishlistCount);
+
+    return () => {
+      window.removeEventListener("storage", updateCartCount);
+      window.removeEventListener("cart-updated", updateCartCount);
+
+      window.removeEventListener("storage", updateWishlistCount);
+      window.removeEventListener("wishlist-updated", updateWishlistCount);
+    };
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 w-full">
@@ -33,7 +81,7 @@ export default function Navbar() {
               </Link>
             </div>
 
-            {/* 📍 Desktop Nav Links (Upgraded Hover Underline & Vibrant Text) */}
+            {/* 📍 Desktop Nav Links */}
             <div className="hidden md:flex space-x-8">
               {["Shop", "Categories", "Deals", "Contact"].map((item) => (
                 <Link
@@ -47,8 +95,24 @@ export default function Navbar() {
               ))}
             </div>
 
-            {/* 🛒 Icons Section (Enhanced Hover Effects & Styling) */}
+            {/* 🛒 Icons Section */}
             <div className="flex items-center space-x-2 sm:space-x-3">
+              {/* ❤️ Wishlist Button with Dynamic Badge Counter */}
+              <Link
+                href="/wishlist"
+                className="relative p-2.5 text-slate-700 hover:text-rose-600 hover:bg-rose-50/70 rounded-xl transition-all duration-200 active:scale-95"
+                aria-label="Wishlist"
+              >
+                <Heart className="h-5 w-5" />
+
+                {/* Show badge only when wishlist has items */}
+                {wishlistCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[11px] font-bold text-white shadow-sm ring-2 ring-white animate-in zoom-in-50 duration-200">
+                    {wishlistCount > 99 ? "99+" : wishlistCount}
+                  </span>
+                )}
+              </Link>
+
               {/* 🛒 Cart Button with Dynamic Badge Counter */}
               <Link
                 href="/cart"
@@ -103,6 +167,21 @@ export default function Navbar() {
                 {item}
               </Link>
             ))}
+
+            <Link
+              href="/wishlist"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center justify-between rounded-xl px-4 py-2.5 text-base font-semibold text-slate-700 hover:bg-rose-50 hover:text-rose-600 transition-all duration-150"
+            >
+              <span className="flex items-center gap-2">
+                <Heart className="w-5 h-5 text-rose-500" /> Wishlist
+              </span>
+              {wishlistCount > 0 && (
+                <span className="bg-rose-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">
+                  {wishlistCount}
+                </span>
+              )}
+            </Link>
 
             {/* Quick Auth Link in Mobile Drawer */}
             <div className="pt-2 border-t border-slate-100">

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, use } from 'react';
+import React, { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { Heart } from 'lucide-react';
 import { MOCK_PRODUCTS } from '@/lib/mockData';
 
 interface ProductPageProps {
@@ -21,6 +22,53 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
 
   const [quantity, setQuantity] = useState(1);
   const [addedToCart, setAddedToCart] = useState(false);
+  const [isInWishlist, setIsInWishlist] = useState(false);
+
+  // Check if item is already in Wishlist on load
+  useEffect(() => {
+    try {
+      const savedWishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
+      const exists = savedWishlist.some((item: any) => item.id === product.id);
+      setIsInWishlist(exists);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [product.id]);
+
+  // ❤️ Wishlist Toggle Handler
+  const handleToggleWishlist = () => {
+    try {
+      const existingWishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
+      const index = existingWishlist.findIndex((item: any) => item.id === product.id);
+
+      let updatedWishlist;
+      if (index > -1) {
+        // Remove if already present
+        updatedWishlist = existingWishlist.filter((item: any) => item.id !== product.id);
+        setIsInWishlist(false);
+      } else {
+        // Add to Wishlist
+        updatedWishlist = [
+          ...existingWishlist,
+          {
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            image: product.image,
+            category: product.category,
+          },
+        ];
+        setIsInWishlist(true);
+      }
+
+      localStorage.setItem('wishlist', JSON.stringify(updatedWishlist));
+
+      // Dispatch event to update Navbar counter
+      window.dispatchEvent(new Event('wishlist-updated'));
+    } catch (error) {
+      console.error("Failed to update wishlist:", error);
+    }
+  };
 
   // 🛒 LocalStorage & Navbar Event Trigger for Cart Addition
   const handleAddToCart = () => {
@@ -43,6 +91,7 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
       localStorage.setItem('cart', JSON.stringify(existingCart));
       
       // Dispatch custom event to notify Navbar immediately
+      window.dispatchEvent(new Event('cart-updated'));
       window.dispatchEvent(new Event('storage'));
 
       setAddedToCart(true);
@@ -53,7 +102,6 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
   };
 
   return (
-    // 💡 Forced Light Wrapper Background to ensure dark text is always readable
     <div className="w-full bg-white text-slate-900 min-h-screen">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
         
@@ -70,7 +118,7 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
           
           {/* Left Side: Product Image Display */}
-          <div className="bg-slate-50 rounded-3xl overflow-hidden border border-slate-200/80 flex items-center justify-center max-h-[500px] shadow-sm">
+          <div className="bg-slate-50 rounded-3xl overflow-hidden border border-slate-200/80 flex items-center justify-center max-h-[500px] shadow-sm relative group">
             <img
               src={product.image}
               alt={product.name}
@@ -148,12 +196,12 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
                 </div>
               )}
 
-              {/* CTA Buttons */}
-              <div className="pt-2">
+              {/* CTA Buttons (Add to Cart + Wishlist) */}
+              <div className="pt-2 flex items-center gap-3">
                 {product.stock > 0 ? (
                   <button
                     onClick={handleAddToCart}
-                    className={`w-full flex items-center justify-center px-6 py-3.5 rounded-xl text-sm font-bold text-white shadow-md transition-all duration-300 active:scale-[0.98] ${
+                    className={`flex-1 flex items-center justify-center px-6 py-3.5 rounded-xl text-sm font-bold text-white shadow-md transition-all duration-300 active:scale-[0.98] ${
                       addedToCart 
                         ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200' 
                         : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'
@@ -164,12 +212,26 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
                 ) : (
                   <button
                     disabled
-                    className="w-full flex items-center justify-center px-6 py-3.5 rounded-xl text-sm font-bold bg-slate-200 text-slate-400 cursor-not-allowed"
+                    className="flex-1 flex items-center justify-center px-6 py-3.5 rounded-xl text-sm font-bold bg-slate-200 text-slate-400 cursor-not-allowed"
                   >
                     Temporarily Out of Stock
                   </button>
                 )}
+
+                {/* ❤️ Wishlist Heart Button */}
+                <button
+                  onClick={handleToggleWishlist}
+                  aria-label="Add to Wishlist"
+                  className={`p-3.5 rounded-xl border transition-all duration-200 active:scale-95 ${
+                    isInWishlist
+                      ? 'bg-rose-50 border-rose-200 text-rose-600 shadow-sm'
+                      : 'bg-white border-slate-200 text-slate-600 hover:text-rose-600 hover:bg-rose-50/50'
+                  }`}
+                >
+                  <Heart className={`w-5 h-5 ${isInWishlist ? 'fill-rose-500' : ''}`} />
+                </button>
               </div>
+
             </div>
           </div>
         </div>
