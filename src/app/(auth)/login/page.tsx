@@ -37,11 +37,10 @@ function LoginForm() {
 
       setSuccess("Login successful! Redirecting...");
 
-      // Dynamic redirect: Cart/Checkout se aaya toh /checkout par, warna / (Home) par
+      // 🚀 HARD REDIRECT: Fixes Middleware blocking issue & forces browser to refresh auth cookies
       setTimeout(() => {
-        router.push(redirectUrl);
-        router.refresh();
-      }, 1500);
+        window.location.href = redirectUrl;
+      }, 1000);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -149,11 +148,13 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <div className="flex min-h-[80vh] items-center justify-center">
-        <p className="text-sm font-medium text-slate-500">Loading login...</p>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex min-h-[80vh] items-center justify-center">
+          <p className="text-sm font-medium text-slate-500">Loading login...</p>
+        </div>
+      }
+    >
       <LoginForm />
     </Suspense>
   );
