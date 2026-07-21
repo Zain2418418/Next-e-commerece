@@ -1,37 +1,39 @@
 import { NextResponse } from 'next/server';
-import { NextRequest } from 'next/server'; // Yahan humne 'next/server' kar diya hai
+import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
-  // Define public paths that don't need token protection
-  const isPublicPath = path === '/login' || path === '/signup' || path === '/api/auth/verify';
+  // Define public auth pages
+  const isAuthPage = path === '/login' || path === '/signup' || path === '/api/auth/verify';
 
-  // Read cookie token issued by the login route
+  // Read auth token from cookies
   const token = request.cookies.get('token')?.value || '';
 
-  // If user has token and tries to access public login pages, push them to homepage
-  if (isPublicPath && token) {
+  // 1. Agar user logged in hai aur login/signup page par jaye, to home par bhej do
+  if (isAuthPage && token) {
     return NextResponse.redirect(new URL('/', request.nextUrl));
   }
 
-  // If user doesn't have token and wants to access protected dashboard/cart areas, force login
-  if (!isPublicPath && !token) {
-    // Add additional paths you want to protect in the matcher config below
-    if (path.startsWith('/cart') || path.startsWith('/profile') || path.startsWith('/admin')) {
-      return NextResponse.redirect(new URL('/login', request.nextUrl));
-    }
+  // 2. Sirf /checkout, /profile, aur /admin ke liye login required hai (/cart IS NOW PUBLIC)
+  const isProtectedPath = 
+    path.startsWith('/checkout') || 
+    path.startsWith('/profile') || 
+    path.startsWith('/admin');
+
+  if (isProtectedPath && !token) {
+    return NextResponse.redirect(new URL('/login', request.nextUrl));
   }
 
   return NextResponse.next();
 }
 
-// See "Matching Paths" below to filter middleware execution
+// Matching Paths config: /cart ko matcher se bhi hata diya hai
 export const config = {
   matcher: [
     '/login',
     '/signup',
-    '/cart/:path*',
+    '/checkout/:path*',
     '/profile/:path*',
     '/admin/:path*'
   ],
