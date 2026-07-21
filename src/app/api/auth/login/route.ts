@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import User from '@/models/User';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
 export async function POST(req: Request) {
   try {
@@ -25,13 +26,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3. Check if user has verified their email (🚨 MOST IMPORTANT)
+    // 3. Check if user has verified their email
     if (!user.isVerified) {
       return NextResponse.json(
         { 
           success: false, 
           error: 'Your email is not verified yet. Please check your inbox for OTP.',
-          notVerified: true // Frontend check ke liye taake chahein toh seedha OTP page par redirect kar skein
+          notVerified: true
         }, 
         { status: 403 }
       );
@@ -46,8 +47,20 @@ export async function POST(req: Request) {
       );
     }
 
-    // 5. Success Login Response (Yahan aap JWT token ya session cookies set kar sakte hain)
-    return NextResponse.json({
+    // 🔑 5. Create JWT Token
+    const jwtSecret = process.env.JWT_SECRET || 'fallback_secret_key_change_in_production';
+    const token = jwt.sign(
+      { 
+        userId: user._id, 
+        email: user.email, 
+        name: user.name 
+      },
+      jwtSecret,
+      { expiresIn: '7d' }
+    );
+
+    // 🚀 6. Create Response with Auth Cookie
+    const response = NextResponse.json({
       success: true,
       message: 'Login successful!',
       user: {
@@ -56,6 +69,19 @@ export async function POST(req: Request) {
         email: user.email,
       }
     }, { status: 200 });
+
+    // Set Token Cookie
+    response.cookies.set({
+      name: 'token',
+      value: token,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/', // Entire site access
+      maxAge: 60 * 60 * 24 * 7, // 7 days expiration
+    });
+
+    return response;
 
   } catch (error: any) {
     console.error('Login API Error:', error);
