@@ -1,11 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // URL se redirect route read karein (e.g. /login?redirect=/checkout). Default '/' (Home)
+  const redirectUrl = searchParams.get("redirect") || "/";
+
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -32,10 +37,9 @@ export default function LoginPage() {
 
       setSuccess("Login successful! Redirecting...");
 
-      // Token secure HTTP-only cookie mein set ho chuka hai backend se
-      // Redirecting user to landing home page after success
+      // Dynamic redirect: Cart/Checkout se aaya toh /checkout par, warna / (Home) par
       setTimeout(() => {
-        router.push("/");
+        router.push(redirectUrl);
         router.refresh();
       }, 1500);
     } catch (err: any) {
@@ -118,7 +122,7 @@ export default function LoginPage() {
               />
             </div>
           </div>
-          {/* 🔗 NEW SECTION ADD (Forgot Password Link) */}
+
           <div className="flex items-center justify-end mt-2">
             <Link
               href="/forgot-password"
@@ -127,6 +131,7 @@ export default function LoginPage() {
               Forgot password?
             </Link>
           </div>
+
           <div>
             <button
               type="submit"
@@ -139,5 +144,17 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-[80vh] items-center justify-center">
+        <p className="text-sm font-medium text-slate-500">Loading login...</p>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }

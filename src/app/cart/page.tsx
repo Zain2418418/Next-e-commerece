@@ -155,13 +155,13 @@ export default function CartPage() {
                 <span>${subtotal.toFixed(2)}</span>
               </div>
 
-              {/* Checkout Button */}
-              <Link
-                href="/checkout"
-                className="w-full flex items-center justify-center gap-2 py-3.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition shadow-md shadow-indigo-100"
-              >
-                Proceed to Checkout <ArrowRight className="w-4 h-4" />
-              </Link>
+              {/* Proceed to Checkout Button */}
+<Link
+  href="/login?redirect=/checkout"
+  className="w-full flex items-center justify-center gap-2 py-3.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition shadow-md shadow-indigo-100"
+>
+  Proceed to Checkout <ArrowRight className="w-4 h-4" />
+</Link>
             </div>
           </div>
         )}

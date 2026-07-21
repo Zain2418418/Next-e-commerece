@@ -15,20 +15,23 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/', request.nextUrl));
   }
 
-  // 2. Sirf /checkout, /profile, aur /admin ke liye login required hai (/cart IS NOW PUBLIC)
+  // 2. Sirf /checkout, /profile, aur /admin ke liye login required hai (/cart IS PUBLIC)
   const isProtectedPath = 
     path.startsWith('/checkout') || 
     path.startsWith('/profile') || 
     path.startsWith('/admin');
 
   if (isProtectedPath && !token) {
-    return NextResponse.redirect(new URL('/login', request.nextUrl));
+    // 🚀 URL ke sath ?redirect=/checkout parameter attach kar ke bhej rahe hain
+    const loginUrl = new URL('/login', request.nextUrl);
+    loginUrl.searchParams.set('redirect', path);
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();
 }
 
-// Matching Paths config: /cart ko matcher se bhi hata diya hai
+// Matching Paths config
 export const config = {
   matcher: [
     '/login',
