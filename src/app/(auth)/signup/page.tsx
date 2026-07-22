@@ -19,6 +19,21 @@ export default function SignupPage() {
     e.preventDefault();
     setError("");
     setSuccess("");
+
+    // 🚀 Quick Frontend Validation
+    if (!formData.name.trim()) {
+      setError("Please enter your full name.");
+      return;
+    }
+    if (!formData.email.trim()) {
+      setError("Please enter your email address.");
+      return;
+    }
+    if (formData.password.length < 6) {
+      setError("Password must be at least 6 characters long.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -30,25 +45,21 @@ export default function SignupPage() {
 
       const data = await res.json();
 
-      // handleSubmit function ke andar search karein:
       if (!res.ok) {
-        throw new Error(data.error || data.message || "Something went wrong");
+        // 🚀 Display exact backend error message instead of generic message
+        const errorMessage = data.error || data.message || "Failed to create account. Please try again.";
+        throw new Error(errorMessage);
       }
 
-      // ⬇️ IS LINE KE NEECHE YEH ADD KAREIN:
-      setSuccess(data.message);
-      // 3 seconds ke baad user ko OTP screen par redirect kar dein
+      setSuccess(data.message || "Account created! Redirecting to verification...");
+      
       setTimeout(() => {
         router.push(
-          `/verify-email?email=${encodeURIComponent(formData.email)}`,
+          `/verify-email?email=${encodeURIComponent(formData.email)}`
         );
-      }, 2000);
-      setFormData({ name: "", email: "", password: "" });
+      }, 1500);
 
-      // Console mein check karne ke liye reminder
-      console.log(
-        "Check your backend terminal console for the verification link!",
-      );
+      setFormData({ name: "", email: "", password: "" });
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -149,7 +160,7 @@ export default function SignupPage() {
               />
             </div>
           </div>
-          {/* 🔗 NEW SECTION ADD (Forgot Password Link) */}
+
           <div className="flex items-center justify-end mt-2">
             <Link
               href="/forgot-password"
@@ -158,6 +169,7 @@ export default function SignupPage() {
               Forgot password?
             </Link>
           </div>
+
           <div>
             <button
               type="submit"

@@ -32,7 +32,15 @@ function LoginForm() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || "Something went wrong");
+        // Exact error message handle karna backend se
+        throw new Error(data.message || data.error || "Invalid credentials or server error");
+      }
+
+      // 💾 User object save in localStorage for Navbar sync
+      if (data.user) {
+        localStorage.setItem("user", JSON.stringify(data.user));
+        // Custom event trigger karke Navbar ko real-time update karte hain
+        window.dispatchEvent(new Event("user-updated"));
       }
 
       setSuccess("Login successful! Redirecting...");
@@ -40,7 +48,7 @@ function LoginForm() {
       // 🚀 HARD REDIRECT: Fixes Middleware blocking issue & forces browser to refresh auth cookies
       setTimeout(() => {
         window.location.href = redirectUrl;
-      }, 1000);
+      }, 800);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -67,13 +75,13 @@ function LoginForm() {
         </div>
 
         {error && (
-          <div className="rounded-md bg-red-50 p-4 text-sm text-red-700 border border-red-100">
+          <div className="rounded-md bg-red-50 p-4 text-sm text-red-700 border border-red-100 animate-in fade-in duration-200">
             {error}
           </div>
         )}
 
         {success && (
-          <div className="rounded-md bg-green-50 p-4 text-sm text-green-700 border border-green-100">
+          <div className="rounded-md bg-green-50 p-4 text-sm text-green-700 border border-green-100 animate-in fade-in duration-200">
             {success}
           </div>
         )}

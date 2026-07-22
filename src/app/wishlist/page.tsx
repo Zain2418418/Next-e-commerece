@@ -8,6 +8,9 @@ export default function WishlistPage() {
   const [wishlistItems, setWishlistItems] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Helper to safely get unique item ID (_id or id)
+  const getItemId = (item: any) => item?._id || item?.id;
+
   // Load wishlist from localStorage
   useEffect(() => {
     const loadWishlist = () => {
@@ -23,26 +26,38 @@ export default function WishlistPage() {
     loadWishlist();
   }, []);
 
+  // Remove item and notify Navbar badge listeners
   const removeFromWishlist = (id: string) => {
-    const updated = wishlistItems.filter((item) => item.id !== id);
+    const updated = wishlistItems.filter((item) => getItemId(item) !== id);
     setWishlistItems(updated);
     localStorage.setItem('wishlist', JSON.stringify(updated));
+
+    // 🚀 Dispatch Wishlist Updated Events for Navbar Badge Sync
+    window.dispatchEvent(new Event('wishlist-updated'));
+    window.dispatchEvent(new Event('wishlistUpdated'));
   };
 
   const moveToCart = (item: any) => {
+    const targetId = getItemId(item);
+
     // 1. Add to Cart
     const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-    const index = cart.findIndex((c: any) => c.id === item.id);
+    const index = cart.findIndex((c: any) => getItemId(c) === targetId);
+
     if (index > -1) {
       cart[index].quantity += 1;
     } else {
       cart.push({ ...item, quantity: 1 });
     }
+    
     localStorage.setItem('cart', JSON.stringify(cart));
-    window.dispatchEvent(new Event('cart-updated'));
 
-    // 2. Remove from Wishlist
-    removeFromWishlist(item.id);
+    // 🚀 Dispatch Cart Events
+    window.dispatchEvent(new Event('cart-updated'));
+    window.dispatchEvent(new Event('cartUpdated'));
+
+    // 2. Remove from Wishlist & update badge
+    removeFromWishlist(targetId);
   };
 
   if (isLoading) {
@@ -68,36 +83,39 @@ export default function WishlistPage() {
             <p className="text-slate-500 text-sm mb-6">Explore products and save your favorites here!</p>
             <Link
               href="/"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-black text-white font-bold rounded-xl hover:bg-gray-800 transition"
             >
               Explore Products
             </Link>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {wishlistItems.map((item) => (
-              <div key={item.id} className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
-                <div>
-                  <img src={item.image} alt={item.name} className="w-full h-48 object-cover rounded-xl bg-white mb-4" />
-                  <h3 className="font-bold text-slate-900 text-base">{item.name}</h3>
-                  <p className="text-indigo-600 font-black text-lg mt-1">${item.price}</p>
+            {wishlistItems.map((item) => {
+              const itemId = getItemId(item);
+              return (
+                <div key={itemId} className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
+                  <div>
+                    <img src={item.image} alt={item.name} className="w-full h-48 object-cover rounded-xl bg-white mb-4" />
+                    <h3 className="font-bold text-slate-900 text-base">{item.name}</h3>
+                    <p className="text-indigo-600 font-black text-lg mt-1">${item.price}</p>
+                  </div>
+                  <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-200/60">
+                    <button
+                      onClick={() => moveToCart(item)}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-black text-white font-bold rounded-xl text-xs hover:bg-gray-800 transition"
+                    >
+                      <ShoppingBag className="w-4 h-4" /> Move to Cart
+                    </button>
+                    <button
+                      onClick={() => removeFromWishlist(itemId)}
+                      className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl transition border border-rose-100 bg-white"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-200/60">
-                  <button
-                    onClick={() => moveToCart(item)}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-indigo-600 text-white font-bold rounded-xl text-xs hover:bg-indigo-700 transition"
-                  >
-                    <ShoppingBag className="w-4 h-4" /> Move to Cart
-                  </button>
-                  <button
-                    onClick={() => removeFromWishlist(item.id)}
-                    className="p-2.5 text-rose-500 hover:bg-rose-50 rounded-xl transition border border-rose-100 bg-white"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
