@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -8,13 +8,22 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // URL se redirect route read karein (e.g. /login?redirect=/checkout). Default '/' (Home)
+  // URL se redirect route read karein (default '/')
   const redirectUrl = searchParams.get("redirect") || "/";
 
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // 🧹 FIX: Jab user Login page par aaye aur pehle se user local storage mein na ho,
+  // toh stale session cookies ko cleanup kar dein taake loop na bane
+  useEffect(() => {
+    const localUser = localStorage.getItem("user");
+    if (!localUser) {
+      fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,23 +41,21 @@ function LoginForm() {
       const data = await res.json();
 
       if (!res.ok) {
-        // Exact error message handle karna backend se
         throw new Error(data.message || data.error || "Invalid credentials or server error");
       }
 
-      // 💾 User object save in localStorage for Navbar sync
+      // 💾 User save in localStorage for Navbar sync
       if (data.user) {
         localStorage.setItem("user", JSON.stringify(data.user));
-        // Custom event trigger karke Navbar ko real-time update karte hain
         window.dispatchEvent(new Event("user-updated"));
       }
 
       setSuccess("Login successful! Redirecting...");
 
-      // 🚀 HARD REDIRECT: Fixes Middleware blocking issue & forces browser to refresh auth cookies
+      // 🚀 Hard Redirect: Forces browser to update cookies & prevents redirect loop
       setTimeout(() => {
         window.location.href = redirectUrl;
-      }, 800);
+      }, 500);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -75,13 +82,13 @@ function LoginForm() {
         </div>
 
         {error && (
-          <div className="rounded-md bg-red-50 p-4 text-sm text-red-700 border border-red-100 animate-in fade-in duration-200">
+          <div className="rounded-md bg-red-50 p-4 text-sm text-red-700 border border-red-100">
             {error}
           </div>
         )}
 
         {success && (
-          <div className="rounded-md bg-green-50 p-4 text-sm text-green-700 border border-green-100 animate-in fade-in duration-200">
+          <div className="rounded-md bg-green-50 p-4 text-sm text-green-700 border border-green-100">
             {success}
           </div>
         )}

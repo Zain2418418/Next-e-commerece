@@ -81,14 +81,23 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     try {
-      localStorage.removeItem("user");
-      // Optional: Call logout API to clear HTTP-Only cookies if exists
-      await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+      // 1. Backend Cookie Clear
+      await fetch("/api/auth/logout", { method: "POST" });
     } catch (e) {
-      console.error(e);
+      console.error("Logout error:", e);
     } finally {
+      // 2. Clear Local Storage Data
+      localStorage.removeItem("user");
+      localStorage.removeItem("token");
+
+      // 3. Reset Local State
       setUser(null);
       setShowDropdown(false);
+
+      // 4. Notify other components
+      window.dispatchEvent(new Event("user-updated"));
+
+      // 5. Hard Redirect to Login Page
       window.location.href = "/login";
     }
   };
