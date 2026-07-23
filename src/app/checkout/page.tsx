@@ -19,23 +19,38 @@ export default function CheckoutPage() {
   });
 
   useEffect(() => {
-    // 1. Check if user is logged in
-    const token = localStorage.getItem('token') || document.cookie.includes('token=');
-    if (!token) {
+    // 🎯 FIX: 'token' ki bajaye 'user' key check karein
+    const savedUser = localStorage.getItem('user');
+
+    if (!savedUser) {
+      // Agar 'user' key nahi milti tabhi login par bhejain
       router.push('/login?redirect=/checkout');
       return;
     }
 
-    // 2. Load Cart Items
-    const saved = JSON.parse(localStorage.getItem('cart') || '[]');
-    setCartItems(saved);
+    // Auto-fill user details if available in localStorage
+    try {
+      const parsedUser = JSON.parse(savedUser);
+      if (parsedUser) {
+        setFormData((prev) => ({
+          ...prev,
+          fullName: parsedUser.name || prev.fullName,
+          email: parsedUser.email || prev.email,
+        }));
+      }
+    } catch (e) {
+      // ignore parse error
+    }
+
+    // Load Cart Items
+    const savedCart = JSON.parse(localStorage.getItem('cart') || '[]');
+    setCartItems(savedCart);
   }, [router]);
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate order placement
     setIsSubmitted(true);
     localStorage.removeItem('cart');
     window.dispatchEvent(new Event('cart-updated'));
