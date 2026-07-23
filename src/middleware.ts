@@ -7,7 +7,7 @@ export function middleware(request: NextRequest) {
   // Define public auth pages
   const isAuthPage = path === '/login' || path === '/signup' || path === '/api/auth/verify';
 
-  // Read auth token from cookies (checking both 'token' and fallback 'authToken')
+  // Read auth token from cookies
   const token = 
     request.cookies.get('token')?.value || 
     request.cookies.get('authToken')?.value || 
@@ -18,15 +18,12 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/', request.nextUrl));
   }
 
-  // 2. Sirf /checkout, /profile, aur /admin ke liye login required hai
+  // 2. Sirf /profile aur /admin ko middleware level par protect karein
   const isProtectedPath = 
-    path === '/checkout' || 
-    path.startsWith('/checkout/') || 
     path.startsWith('/profile') || 
     path.startsWith('/admin');
 
   if (isProtectedPath && !token) {
-    // 🚀 URL ke sath ?redirect= parameter attach kar ke bhej rahe hain
     const loginUrl = new URL('/login', request.nextUrl);
     loginUrl.searchParams.set('redirect', path);
     return NextResponse.redirect(loginUrl);
@@ -35,16 +32,12 @@ export function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-// Matching Paths config (Fixed matcher array)
+// Matching Paths config
 export const config = {
   matcher: [
     '/login',
     '/signup',
-    '/checkout',
-    '/checkout/:path*',
-    '/profile',
     '/profile/:path*',
-    '/admin',
     '/admin/:path*'
   ],
 };

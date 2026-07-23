@@ -2,9 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, ShieldCheck } from 'lucide-react';
 
 export default function CheckoutPage() {
+  const router = useRouter();
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [formData, setFormData] = useState({
@@ -17,9 +19,17 @@ export default function CheckoutPage() {
   });
 
   useEffect(() => {
+    // 1. Check if user is logged in
+    const token = localStorage.getItem('token') || document.cookie.includes('token=');
+    if (!token) {
+      router.push('/login?redirect=/checkout');
+      return;
+    }
+
+    // 2. Load Cart Items
     const saved = JSON.parse(localStorage.getItem('cart') || '[]');
     setCartItems(saved);
-  }, []);
+  }, [router]);
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
