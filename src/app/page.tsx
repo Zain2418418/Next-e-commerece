@@ -6,18 +6,44 @@ import { MOCK_PRODUCTS, CATEGORIES, Product } from '@/lib/mockData';
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  // 🔄 Multi-category selection array state
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [maxPrice, setMaxPrice] = useState(250);
   const [sortBy, setSortBy] = useState('featured');
+
+  // Available categories excluding 'All' for checkbox lists
+  const availableCategories = useMemo(() => {
+    return CATEGORIES.filter((cat) => cat !== 'All');
+  }, []);
+
+  // 🔄 Category toggle handler function
+  const handleCategoryToggle = (category: string) => {
+    if (category === 'All') {
+      setSelectedCategories([]);
+      return;
+    }
+
+    setSelectedCategories((prev) =>
+      prev.includes(category)
+        ? prev.filter((c) => c !== category)
+        : [...prev, category]
+    );
+  };
 
   // Filtered and Sorted Products logic
   const filteredProducts = useMemo(() => {
     return MOCK_PRODUCTS.filter((product) => {
-      const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                            product.description.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
+      const matchesSearch =
+        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.description.toLowerCase().includes(searchQuery.toLowerCase());
+
+      // 🔄 Multi-category match check
+      const matchesCategory =
+        selectedCategories.length === 0 ||
+        selectedCategories.includes(product.category);
+
       const matchesPrice = product.price <= maxPrice;
-      
+
       return matchesSearch && matchesCategory && matchesPrice;
     }).sort((a, b) => {
       if (sortBy === 'price-low') return a.price - b.price;
@@ -25,7 +51,7 @@ export default function Home() {
       if (sortBy === 'rating') return b.rating - a.rating;
       return 0; // featured (default array order)
     });
-  }, [searchQuery, selectedCategory, maxPrice, sortBy]);
+  }, [searchQuery, selectedCategories, maxPrice, sortBy]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 min-h-screen">
@@ -42,8 +68,44 @@ export default function Home() {
       <div className="lg:grid lg:grid-cols-4 lg:gap-x-8 lg:items-start">
         {/* FILTERS SIDEBAR (Desktop) */}
         <div className="hidden lg:block space-y-6 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm sticky top-24">
-          <h3 className="text-lg font-semibold text-gray-900 border-b pb-3">Filters</h3>
-          
+          <div className="flex justify-between items-center border-b pb-3">
+            <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
+            {selectedCategories.length > 0 && (
+              <button
+                onClick={() => setSelectedCategories([])}
+                className="text-xs text-red-500 hover:underline font-medium"
+              >
+                Clear ({selectedCategories.length})
+              </button>
+            )}
+          </div>
+
+          {/* 🔄 Multi-Category Checkboxes Section */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Categories
+            </label>
+            <div className="space-y-2.5">
+              {availableCategories.map((cat) => {
+                const isChecked = selectedCategories.includes(cat);
+                return (
+                  <label
+                    key={cat}
+                    className="flex items-center gap-3 text-sm font-medium text-gray-700 hover:text-black cursor-pointer select-none"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => handleCategoryToggle(cat)}
+                      className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black cursor-pointer"
+                    />
+                    <span>{cat}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Price Range */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -78,7 +140,7 @@ export default function Home() {
 
         {/* PRODUCTS AREA */}
         <div className="lg:col-span-3 space-y-6">
-          {/* Top Bar (Search + Categories Carousel) */}
+          {/* Top Bar (Search + Quick Multi-Select Categories) */}
           <div className="flex flex-col sm:flex-row gap-4 justify-between items-center bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
             {/* Search Box */}
             <div className="relative w-full sm:max-w-xs">
@@ -91,21 +153,34 @@ export default function Home() {
               />
             </div>
 
-            {/* Category Quick Tabs */}
+            {/* Category Quick Multi-Select Tabs */}
             <div className="flex gap-2 overflow-x-auto w-full sm:w-auto scrollbar-none py-1">
-              {CATEGORIES.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-200 whitespace-nowrap ${
-                    selectedCategory === cat
-                      ? 'bg-black text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
+              <button
+                onClick={() => setSelectedCategories([])}
+                className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-200 whitespace-nowrap ${
+                  selectedCategories.length === 0
+                    ? 'bg-black text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                All
+              </button>
+              {availableCategories.map((cat) => {
+                const isSelected = selectedCategories.includes(cat);
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => handleCategoryToggle(cat)}
+                    className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-200 whitespace-nowrap ${
+                      isSelected
+                        ? 'bg-black text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {cat} {isSelected && '✓'}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -113,8 +188,12 @@ export default function Home() {
           {filteredProducts.length === 0 ? (
             <div className="text-center py-24 bg-white rounded-2xl border border-gray-100">
               <p className="text-gray-500 text-lg">No products found matching your search.</p>
-              <button 
-                onClick={() => { setSearchQuery(''); setSelectedCategory('All'); setMaxPrice(250); }}
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedCategories([]);
+                  setMaxPrice(250);
+                }}
                 className="mt-4 inline-flex items-center px-4 py-2 bg-black text-white rounded-lg text-sm font-semibold hover:bg-gray-900 transition"
               >
                 Reset Filters
@@ -147,7 +226,7 @@ export default function Home() {
                         </Link>
                       </h3>
                     </div>
-                    
+
                     {/* Rating display */}
                     <div className="flex items-center space-x-1.5">
                       <span className="text-yellow-400 text-sm">★</span>
@@ -156,7 +235,7 @@ export default function Home() {
                     </div>
 
                     <p className="text-xs text-gray-500 line-clamp-2">{product.description}</p>
-                    
+
                     <div className="flex justify-between items-center pt-2">
                       <span className="text-lg font-black text-gray-900">${product.price}</span>
                       <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
