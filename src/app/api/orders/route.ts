@@ -5,8 +5,8 @@ import Cart from "@/models/Cart";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 
-// Helper function to extract user ID from Auth Token Cookie
-async function getUserIdFromToken() {
+// Helper function to extract user ID & Email from Auth Token Cookie
+async function getUserFromToken() {
   const cookieStore = await cookies();
   const token = cookieStore.get("token")?.value;
 
@@ -14,23 +14,38 @@ async function getUserIdFromToken() {
 
   try {
     const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
-    return decoded.id || decoded.userId;
+    return {
+      userId: decoded.id || decoded.userId,
+      email: decoded.email,
+    };
   } catch (error) {
     return null;
   }
 }
 
 // 📦 1. GET: Fetch User Orders
-export async function GET() {
+export async function GET(req: Request) {
   try {
     await dbConnect();
-    const userId = await getUserIdFromToken();
+    const user = await getUserFromToken();
+    
+    // Also check for email query parameter as fallback
+    const { searchParams } = new URL(req.url);
+    const queryEmail = searchParams.get("email");
 
-    if (!userId) {
+    const searchEmail = user?.email || queryEmail;
+    const userId = user?.userId;
+
+    if (!userId && !searchEmail) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const orders = await Order.find({ user: userId })
+    // Search by userId or email
+    const queryConditions: any[] = [];
+    if (userId) queryConditions.push({ user: userId });
+    if (searchEmail) queryConditions.push({ customerEmail: searchEmail });
+
+    const orders = await Order.find({ $or: queryConditions })
       .populate("items.product")
       .sort({ createdAt: -1 });
 
@@ -47,13 +62,9 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     await dbConnect();
-    const userId = await getUserIdFromToken();
+    const user = await getUserFromToken();
 
-    if (!userId) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
-
-    const { items, shippingAddress, totalAmount, paymentMethod } = await req.json();
+    const { items, shippingAddress, totalAmount, paymentMethod, customerEmail } = await req.json();
 
     if (!items || items.length === 0) {
       return NextResponse.json(
@@ -71,15 +82,20 @@ export async function POST(req: Request) {
 
     // 1. Create Order
     const order = await Order.create({
-      user: userId,
+      user: user?.userId || undefined,
+      customerEmail: customerEmail || user?.email || shippingAddress?.email,
       items,
       shippingAddress,
       totalAmount,
       paymentMethod: paymentMethod || "COD",
+      paymentStatus: paymentMethod === "COD" ? "pending" : "pending",
+      status: "Pending",
     });
 
-    // 2. Clear User Cart in DB after order is placed
-    await Cart.findOneAndUpdate({ user: userId }, { items: [] });
+    // 2. Clear User Cart in DB after order is placed (if user logged in)
+    if (user?.userId) {
+      await Cart.findOneAndUpdate({ user: user.userId }, { items: [] });
+    }
 
     return NextResponse.json(
       {

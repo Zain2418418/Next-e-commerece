@@ -1,24 +1,29 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IOrderItem {
-  product: mongoose.Types.ObjectId;
+  product?: mongoose.Types.ObjectId;
+  name?: string;
   quantity: number;
   price: number;
+  image?: string;
 }
 
 export interface IOrder extends Document {
-  user: mongoose.Types.ObjectId;
+  user?: mongoose.Types.ObjectId;
+  customerEmail?: string;
   items: IOrderItem[];
-  shippingAddress: {
+  shippingAddress?: {
     fullName: string;
     address: string;
     city: string;
-    postalCode: string;
+    postalCode?: string;
     phone: string;
   };
   totalAmount: number;
   paymentMethod: string;
+  paymentStatus?: "pending" | "paid" | "failed";
   status: "Pending" | "Processing" | "Shipped" | "Delivered" | "Cancelled";
+  stripeSessionId?: string;
   createdAt: Date;
 }
 
@@ -27,33 +32,42 @@ const OrderSchema: Schema = new Schema(
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: false,
     },
+    customerEmail: { type: String },
     items: [
       {
         product: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "Product",
-          required: true,
+          required: false,
         },
+        name: { type: String },
         quantity: { type: Number, required: true },
         price: { type: Number, required: true },
+        image: { type: String },
       },
     ],
     shippingAddress: {
-      fullName: { type: String, required: true },
-      address: { type: String, required: true },
-      city: { type: String, required: true },
-      postalCode: { type: String, required: true },
-      phone: { type: String, required: true },
+      fullName: { type: String },
+      address: { type: String },
+      city: { type: String },
+      postalCode: { type: String },
+      phone: { type: String },
     },
     totalAmount: { type: Number, required: true },
     paymentMethod: { type: String, default: "COD" },
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "paid", "failed"],
+      default: "pending",
+    },
     status: {
       type: String,
       enum: ["Pending", "Processing", "Shipped", "Delivered", "Cancelled"],
       default: "Pending",
     },
+    stripeSessionId: { type: String },
   },
   { timestamps: true }
 );

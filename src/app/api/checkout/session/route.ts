@@ -16,12 +16,15 @@ export async function POST(req: Request) {
       );
     }
 
+    // Dynamic Base URL fallback
+    const origin = req.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
     // Stripe Line Items Format Convert
     const lineItems = items.map((item: any) => ({
       price_data: {
         currency: 'usd',
         product_data: {
-          name: item.name,
+          name: item.name || item.title || 'Product',
           images: item.image ? [item.image] : [],
         },
         unit_amount: Math.round(item.price * 100), // Stripe cents/paisa read karta hai
@@ -35,11 +38,11 @@ export async function POST(req: Request) {
       line_items: lineItems,
       mode: 'payment',
       customer_email: customerEmail || undefined,
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout/cancel`,
+      success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/checkout/cancel`,
     });
 
-    return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url: session.url, id: session.id });
   } catch (error: any) {
     console.error('Stripe Session Error:', error);
     return NextResponse.json(
