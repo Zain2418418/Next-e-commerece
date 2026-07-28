@@ -8,22 +8,22 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // URL se redirect route read karein (default '/')
-  const redirectUrl = searchParams.get("redirect") || "/";
+  // 1. Target redirect URL read karein (Priority: Checkout URL)
+  const redirectUrl = searchParams.get("redirect") || "/checkout";
 
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 🧹 FIX: Jab user Login page par aaye aur pehle se user local storage mein na ho,
-  // toh stale session cookies ko cleanup kar dein taake loop na bane
+  // 2. Auto-redirect logic: Agar user PEHLE SE logged in hai toh directly Checkout / Redirect target par bhejo
   useEffect(() => {
     const localUser = localStorage.getItem("user");
-    if (!localUser) {
-      fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    if (localUser) {
+      // User logged in hai -> Directly redirect target par bhej do
+      router.replace(redirectUrl);
     }
-  }, []);
+  }, [redirectUrl, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +44,7 @@ function LoginForm() {
         throw new Error(data.message || data.error || "Invalid credentials or server error");
       }
 
-      // 💾 User save in localStorage for Navbar sync
+      // 💾 User save in localStorage for state sync
       if (data.user) {
         localStorage.setItem("user", JSON.stringify(data.user));
         window.dispatchEvent(new Event("user-updated"));
@@ -52,10 +52,10 @@ function LoginForm() {
 
       setSuccess("Login successful! Redirecting...");
 
-      // 🚀 Hard Redirect: Forces browser to update cookies & prevents redirect loop
+      // 🚀 Redirect to target page (Checkout)
       setTimeout(() => {
         window.location.href = redirectUrl;
-      }, 500);
+      }, 300);
     } catch (err: any) {
       setError(err.message);
     } finally {

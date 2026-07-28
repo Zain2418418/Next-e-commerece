@@ -4,8 +4,13 @@ import type { NextRequest } from 'next/server';
 export function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
-  // Define public auth pages
-  const isAuthPage = path === '/login' || path === '/signup' || path === '/api/auth/verify';
+  // Define auth pages (both /login and /auth/login)
+  const isAuthPage = 
+    path === '/login' || 
+    path === '/auth/login' || 
+    path === '/signup' || 
+    path === '/auth/signup' ||
+    path === '/api/auth/verify';
 
   // Read auth token from cookies
   const token = 
@@ -13,9 +18,11 @@ export function middleware(request: NextRequest) {
     request.cookies.get('authToken')?.value || 
     '';
 
-  // 1. Agar user logged in hai aur login/signup page par jaye, to home par bhej do
+  // 1. Agar user logged in hai aur login/signup page par aaye:
   if (isAuthPage && token) {
-    return NextResponse.redirect(new URL('/', request.nextUrl));
+    // Target redirect param read karein (agar URL mein redirect=/checkout ho)
+    const redirectTo = request.nextUrl.searchParams.get('redirect') || '/';
+    return NextResponse.redirect(new URL(redirectTo, request.nextUrl));
   }
 
   // 2. Sirf /profile aur /admin ko middleware level par protect karein
@@ -24,7 +31,7 @@ export function middleware(request: NextRequest) {
     path.startsWith('/admin');
 
   if (isProtectedPath && !token) {
-    const loginUrl = new URL('/login', request.nextUrl);
+    const loginUrl = new URL('/auth/login', request.nextUrl);
     loginUrl.searchParams.set('redirect', path);
     return NextResponse.redirect(loginUrl);
   }
@@ -36,7 +43,9 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     '/login',
+    '/auth/login',
     '/signup',
+    '/auth/signup',
     '/profile/:path*',
     '/admin/:path*'
   ],

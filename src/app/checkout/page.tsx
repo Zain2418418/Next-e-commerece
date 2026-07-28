@@ -23,8 +23,8 @@ export default function CheckoutPage() {
     const savedUser = localStorage.getItem('user');
 
     if (!savedUser) {
-      // Agar 'user' key nahi milti tabhi login par bhejain
-      router.push('/login?redirect=/checkout');
+      // 🚨 FIX HERE: '/login' ki bajaye '/auth/login'
+      router.push('/auth/login?redirect=/checkout');
       return;
     }
 
