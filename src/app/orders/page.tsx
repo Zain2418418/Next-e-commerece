@@ -10,15 +10,15 @@ export default function OrderHistoryPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
     let email = '';
+    const savedUser = localStorage.getItem('user');
 
     if (savedUser) {
       try {
         const parsed = JSON.parse(savedUser);
         email = parsed.email || '';
       } catch (e) {
-        // ignore parse error
+        // Ignore JSON parse error
       }
     }
 
@@ -71,71 +71,97 @@ export default function OrderHistoryPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {orders.map((order) => (
-              <div
-                key={order._id}
-                className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-4"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
-                  <div>
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Order ID</span>
-                    <span className="font-mono text-sm font-bold text-slate-800">#{order._id.slice(-8)}</span>
+            {orders.map((order) => {
+              const orderId = order._id ? order._id.slice(-8) : 'N/A';
+              const isPaid = order.paymentStatus === 'paid';
+              const totalAmount = Number(order.totalAmount || 0);
+
+              return (
+                <div
+                  key={order._id}
+                  className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                    <div>
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                        Order ID
+                      </span>
+                      <span className="font-mono text-sm font-bold text-slate-800">
+                        #{orderId}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                        Date
+                      </span>
+                      <span className="text-sm font-semibold text-slate-600">
+                        {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                        Payment
+                      </span>
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                          isPaid
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-amber-50 text-amber-700 border border-amber-200'
+                        }`}
+                      >
+                        {isPaid ? (
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        ) : (
+                          <Clock className="w-3.5 h-3.5" />
+                        )}
+                        {(order.paymentStatus || 'pending').toUpperCase()} ({(order.paymentMethod || 'COD').toUpperCase()})
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                        Total
+                      </span>
+                      <span className="text-base font-black text-slate-900">
+                        ${totalAmount.toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div>
+                      <button
+                        onClick={() => generateInvoice(order)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 rounded-xl text-xs font-bold transition"
+                      >
+                        <Download className="w-3.5 h-3.5" /> Invoice
+                      </button>
+                    </div>
                   </div>
 
-                  <div>
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Date</span>
-                    <span className="text-sm font-semibold text-slate-600">
-                      {new Date(order.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
+                  {order.items && order.items.length > 0 && (
+                    <div className="space-y-2">
+                      {order.items.map((item: any, idx: number) => {
+                        const itemName = item.name || item.product?.name || 'Item';
+                        const itemQuantity = item.quantity || 1;
+                        const itemPrice = Number(item.price || item.product?.price || 0);
 
-                  <div>
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Payment</span>
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                        order.paymentStatus === 'paid'
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : 'bg-amber-50 text-amber-700 border border-amber-200'
-                      }`}
-                    >
-                      {order.paymentStatus === 'paid' ? (
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                      ) : (
-                        <Clock className="w-3.5 h-3.5" />
-                      )}
-                      {(order.paymentStatus || 'pending').toUpperCase()} ({(order.paymentMethod || 'COD').toUpperCase()})
-                    </span>
-                  </div>
-
-                  <div>
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total</span>
-                    <span className="text-base font-black text-slate-900">${(order.totalAmount || 0).toFixed(2)}</span>
-                  </div>
-
-                  <div>
-                    <button
-                      onClick={() => generateInvoice(order)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 rounded-xl text-xs font-bold transition"
-                    >
-                      <Download className="w-3.5 h-3.5" /> Invoice
-                    </button>
-                  </div>
+                        return (
+                          <div key={idx} className="flex justify-between items-center text-sm">
+                            <span className="text-slate-700 font-medium">
+                              {itemName} <span className="text-slate-400">x{itemQuantity}</span>
+                            </span>
+                            <span className="font-bold text-slate-900">
+                              ${(itemPrice * itemQuantity).toFixed(2)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-
-                {order.items && order.items.length > 0 && (
-                  <div className="space-y-2">
-                    {order.items.map((item: any, idx: number) => (
-                      <div key={idx} className="flex justify-between items-center text-sm">
-                        <span className="text-slate-700 font-medium">
-                          {item.name || item.product?.name || 'Item'} <span className="text-slate-400">x{item.quantity}</span>
-                        </span>
-                        <span className="font-bold text-slate-900">${(item.price * item.quantity).toFixed(2)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

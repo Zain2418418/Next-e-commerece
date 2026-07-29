@@ -7,12 +7,12 @@ import jwt from "jsonwebtoken";
 
 // Helper function to extract user ID & Email from Auth Token Cookie
 async function getUserFromToken() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("token")?.value;
-
-  if (!token) return null;
-
   try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("token")?.value;
+
+    if (!token) return null;
+
     const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
     return {
       userId: decoded.id || decoded.userId,
@@ -28,11 +28,11 @@ export async function GET(req: Request) {
   try {
     await dbConnect();
     const user = await getUserFromToken();
-    
-    // Also check for email query parameter as fallback
+
     const { searchParams } = new URL(req.url);
     const queryEmail = searchParams.get("email");
 
+    // Prefer verified JWT email/userId; fallback to explicit query parameter only if unauthenticated
     const searchEmail = user?.email || queryEmail;
     const userId = user?.userId;
 
@@ -40,7 +40,6 @@ export async function GET(req: Request) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    // Search by userId or email
     const queryConditions: any[] = [];
     if (userId) queryConditions.push({ user: userId });
     if (searchEmail) queryConditions.push({ customerEmail: searchEmail });
@@ -58,13 +57,13 @@ export async function GET(req: Request) {
   }
 }
 
-// 🛒 2. POST: Place New Order (Checkout)
+// 🛒 2. POST: Place New Order (Checkout / COD)
 export async function POST(req: Request) {
   try {
     await dbConnect();
     const user = await getUserFromToken();
 
-    const { items, shippingAddress, totalAmount, paymentMethod, customerEmail } = await req.json();
+    const { items, shippingAddress, totalAmount, paymentMethod, customerEmail, paymentStatus } = await req.json();
 
     if (!items || items.length === 0) {
       return NextResponse.json(
@@ -80,6 +79,8 @@ export async function POST(req: Request) {
       );
     }
 
+    const isCod = (paymentMethod || "COD").toUpperCase() === "COD";
+
     // 1. Create Order
     const order = await Order.create({
       user: user?.userId || undefined,
@@ -88,11 +89,11 @@ export async function POST(req: Request) {
       shippingAddress,
       totalAmount,
       paymentMethod: paymentMethod || "COD",
-      paymentStatus: paymentMethod === "COD" ? "pending" : "pending",
+      paymentStatus: paymentStatus || (isCod ? "pending" : "paid"),
       status: "Pending",
     });
 
-    // 2. Clear User Cart in DB after order is placed (if user logged in)
+    // 2. Clear User Cart in DB after order is placed
     if (user?.userId) {
       await Cart.findOneAndUpdate({ user: user.userId }, { items: [] });
     }
