@@ -11,14 +11,15 @@ export default function OrderHistoryPage() {
 
   useEffect(() => {
     let email = '';
-    const savedUser = localStorage.getItem('user');
+    const savedUser = localStorage.getItem('user') || localStorage.getItem('userInfo');
 
     if (savedUser) {
       try {
         const parsed = JSON.parse(savedUser);
-        email = parsed.email || '';
+        email = parsed.email || parsed.user?.email || '';
       } catch (e) {
-        // Ignore JSON parse error
+        // Safe fallback if raw string stored
+        if (savedUser.includes('@')) email = savedUser;
       }
     }
 
@@ -26,7 +27,13 @@ export default function OrderHistoryPage() {
       ? `/api/orders?email=${encodeURIComponent(email)}` 
       : '/api/orders';
 
-    fetch(fetchUrl)
+    fetch(fetchUrl, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      // Ensure cookies are included in request
+      credentials: 'include', 
+    })
       .then((res) => res.json())
       .then((data) => {
         if (data.orders) {
