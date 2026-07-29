@@ -1,13 +1,44 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { CheckCircle2, ShoppingBag, ArrowRight, FileText } from 'lucide-react';
+import { CheckCircle2, ShoppingBag, ArrowRight, FileText, Loader2 } from 'lucide-react';
 
 function SuccessContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session_id');
+  const [savingOrder, setSavingOrder] = useState(true);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  useEffect(() => {
+    if (!sessionId) {
+      setSavingOrder(false);
+      return;
+    }
+
+    // Call backend to verify stripe session and save order in database
+    fetch('/api/checkout/success', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId }),
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Failed to save order');
+        }
+        // Clear local cart after successful order creation
+        localStorage.removeItem('cart');
+      })
+      .catch((err) => {
+        console.error('Order saving error:', err);
+        setErrorMsg(err.message);
+      })
+      .finally(() => {
+        setSavingOrder(false);
+      });
+  }, [sessionId]);
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 text-slate-900">
@@ -19,9 +50,17 @@ function SuccessContent() {
         <div className="space-y-2">
           <h1 className="text-2xl font-extrabold tracking-tight">Payment Successful!</h1>
           <p className="text-sm text-slate-500">
-            Thank you for your order. We’ve received your payment and are processing your order right now.
+            {savingOrder
+              ? 'Confirming your order and saving details...'
+              : 'Thank you for your order. We’ve received your payment and processed your order.'}
           </p>
         </div>
+
+        {savingOrder && (
+          <div className="flex items-center justify-center gap-2 text-indigo-600 text-sm font-semibold">
+            <Loader2 className="w-4 h-4 animate-spin" /> Finalizing order...
+          </div>
+        )}
 
         {sessionId && (
           <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 text-left space-y-1">
@@ -52,11 +91,13 @@ function SuccessContent() {
 
 export default function CheckoutSuccessPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-white flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        </div>
+      }
+    >
       <SuccessContent />
     </Suspense>
   );
