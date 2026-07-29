@@ -80,6 +80,12 @@ export default function CheckoutPage() {
 
         // Stripe Hosted Checkout Page Redirect
         if (data.url) {
+          // Clear cart before redirecting to Stripe
+          localStorage.removeItem('cart');
+          setCartItems([]);
+          window.dispatchEvent(new Event('cart-updated'));
+          window.dispatchEvent(new Event('storage'));
+          
           window.location.href = data.url;
         }
       } catch (err: any) {
@@ -91,7 +97,9 @@ export default function CheckoutPage() {
     else {
       setIsSubmitted(true);
       localStorage.removeItem('cart');
+      setCartItems([]); // Clear local state
       window.dispatchEvent(new Event('cart-updated'));
+      window.dispatchEvent(new Event('storage'));
       setLoading(false);
     }
   };
