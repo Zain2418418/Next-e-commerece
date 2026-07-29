@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/dbConnect";
 import Order from "@/models/Order";
 import Cart from "@/models/Cart";
-import Product from "@/models/Product"; // Imported to recalculate pricing & validate stock
+import Product from "@/models/Product";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 
+// Helper function to extract user ID & Email from Auth Token Cookie
 async function getUserFromToken() {
   try {
     const cookieStore = await cookies();
@@ -29,19 +30,25 @@ async function getUserFromToken() {
 }
 
 // 📦 1. GET: Fetch User Orders
-export async function GET() {
+export async function GET(req: Request) {
   try {
     await dbConnect();
     const user = await getUserFromToken();
 
-    // Strictly enforce auth — prevents attackers from leaking orders via email params
-    if (!user?.userId && !user?.email) {
+    const { searchParams } = new URL(req.url);
+    const queryEmail = searchParams.get("email");
+
+    // Verified JWT email check karo, agar token nahi milta toh URL parameters waali queryEmail use karo
+    const searchEmail = user?.email || queryEmail;
+    const userId = user?.userId;
+
+    if (!userId && !searchEmail) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
     const queryConditions: Record<string, unknown>[] = [];
-    if (user.userId) queryConditions.push({ user: user.userId });
-    if (user.email) queryConditions.push({ customerEmail: user.email });
+    if (userId) queryConditions.push({ user: userId });
+    if (searchEmail) queryConditions.push({ customerEmail: searchEmail });
 
     const orders = await Order.find({ $or: queryConditions })
       .populate("items.product")
