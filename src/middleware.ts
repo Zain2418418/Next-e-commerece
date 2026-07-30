@@ -25,10 +25,10 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(redirectTo, request.nextUrl));
   }
 
-  // 2. Sirf /profile aur /admin ko middleware level par protect karein
+  // 2. Sirf /profile ko middleware level par protect karein (/admin ko abhi ke liye bypass kiya hai)
   const isProtectedPath = 
-    path.startsWith('/profile') || 
-    path.startsWith('/admin');
+    path.startsWith('/profile'); 
+    // || path.startsWith('/admin'); <-- Admin temporarily un-protected for UI work
 
   if (isProtectedPath && !token) {
     const loginUrl = new URL('/auth/login', request.nextUrl);
