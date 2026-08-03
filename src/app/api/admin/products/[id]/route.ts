@@ -5,11 +5,11 @@ import Product from '@/models/Product';
 // 1. DELETE: Delete product by ID
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await dbConnect();
-    const { id } = params;
+    const { id } = await params; // 👈 Await params here
 
     const deletedProduct = await Product.findByIdAndDelete(id);
 
@@ -36,11 +36,11 @@ export async function DELETE(
 // 2. PUT: Update product by ID
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await dbConnect();
-    const { id } = params;
+    const { id } = await params; // 👈 Await params here
     const body = await req.json();
 
     const updatedProduct = await Product.findByIdAndUpdate(id, body, {
