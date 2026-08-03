@@ -47,13 +47,14 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🔑 5. Create JWT Token
+    // 🔑 5. Create JWT Token (with ROLE)
     const jwtSecret = process.env.JWT_SECRET || 'fallback_secret_key_change_in_production';
     const token = jwt.sign(
       { 
         userId: user._id, 
         email: user.email, 
-        name: user.name 
+        name: user.name,
+        role: user.role || 'user' // 👈 Added Role in Token
       },
       jwtSecret,
       { expiresIn: '7d' }
@@ -67,6 +68,7 @@ export async function POST(req: Request) {
         id: user._id,
         name: user.name,
         email: user.email,
+        role: user.role || 'user', // 👈 Added Role in Response
       }
     }, { status: 200 });
 
