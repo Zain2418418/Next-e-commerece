@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { X, Bell, CheckCircle2, ShoppingBag, InfoAlert } from 'lucide-react';
+import { X, Bell, CheckCircle2, ShoppingBag, Info } from 'lucide-react';
 
 export interface NotificationItem {
   id: string;
