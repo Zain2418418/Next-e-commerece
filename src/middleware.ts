@@ -21,7 +21,25 @@ function decodeJwtPayload(token: string) {
 export function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
-  // 1. Auth pages list
+  // 1. Dedicated Admin Login Page Handler
+  if (path === '/admin/login') {
+    const token =
+      request.cookies.get('token')?.value ||
+      request.cookies.get('authToken')?.value ||
+      '';
+
+    // Agar pehle se admin token maujood hai, to direct dashboard par bhejain
+    if (token) {
+      const payload = decodeJwtPayload(token);
+      if (payload && payload.role === 'admin') {
+        return NextResponse.redirect(new URL('/admin', request.nextUrl));
+      }
+    }
+    // Warna login page open hone dein
+    return NextResponse.next();
+  }
+
+  // 2. Auth pages list
   const isAuthPage = 
     path === '/login' || 
     path === '/auth/login' || 
@@ -29,35 +47,40 @@ export function middleware(request: NextRequest) {
     path === '/auth/signup' ||
     path === '/api/auth/verify';
 
-  // 2. Read auth token from cookies
+  // 3. Read auth token from cookies
   const token = 
     request.cookies.get('token')?.value || 
     request.cookies.get('authToken')?.value || 
     '';
 
-  // 3. Logged-in user logged-out pages (Login/Signup) par nahi ja sakta
+  // 4. Logged-in user logged-out pages (Login/Signup) par nahi ja sakta
   if (isAuthPage && token) {
     const redirectTo = request.nextUrl.searchParams.get('redirect') || '/';
     return NextResponse.redirect(new URL(redirectTo, request.nextUrl));
   }
 
-  // 4. Protected Routes Check (/profile & /admin)
+  // 5. Protected Routes Check (/profile & /admin)
   const isProtectedPath = path.startsWith('/profile') || path.startsWith('/admin');
 
-  // Agar protected route hai aur token nahi hai -> Redirect to Login
+  // Agar protected route hai aur token nahi hai:
+  // - /admin paths -> Dedicated /admin/login page
+  // - Baaki protected paths (/profile) -> Standard /auth/login page
   if (isProtectedPath && !token) {
+    if (path.startsWith('/admin')) {
+      return NextResponse.redirect(new URL('/admin/login', request.nextUrl));
+    }
     const loginUrl = new URL('/auth/login', request.nextUrl);
     loginUrl.searchParams.set('redirect', path);
     return NextResponse.redirect(loginUrl);
   }
 
-  // 🔒 5. Strict Admin Protection Check
+  // 🔒 6. Strict Admin Protection Check
   if (path.startsWith('/admin') && token) {
     const payload = decodeJwtPayload(token);
 
-    // Agar token invalid hai ya role admin nahi hai -> Access Denied (Redirect to Home)
+    // Agar token invalid hai ya role admin nahi hai -> Access Denied (Redirect to Admin Login or Home)
     if (!payload || payload.role !== 'admin') {
-      return NextResponse.redirect(new URL('/', request.nextUrl));
+      return NextResponse.redirect(new URL('/admin/login', request.nextUrl));
     }
   }
 
