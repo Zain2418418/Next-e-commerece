@@ -1,14 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
-import Order from '@/models/Order'; // Apne Order model ka correct path check kar lein
+import Order from '@/models/Order'; // Adjust model import path if needed
 
 export async function PATCH(
-  req: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await dbConnect();
-    const { id } = params;
+    const { id } = await params; // 👈 await params added
     const body = await req.json();
 
     if (!body.status) {
