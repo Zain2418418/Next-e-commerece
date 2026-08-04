@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ShoppingBag, Loader2, Eye, CheckCircle, Clock, Truck, XCircle } from 'lucide-react';
+import { ShoppingBag, Loader2 } from 'lucide-react';
 
 interface OrderItem {
   product: {
@@ -93,7 +93,7 @@ export default function AdminOrdersPage() {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <ShoppingBag className="text-indigo-600" /> Orders Management
@@ -110,71 +110,74 @@ export default function AdminOrdersPage() {
       ) : error ? (
         <div className="p-4 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>
       ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden border border-gray-200 dark:border-gray-700">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50 dark:bg-gray-900/50 text-xs font-semibold text-gray-500 uppercase border-b border-gray-200 dark:border-gray-700">
-                <th className="p-4">Order ID</th>
-                <th className="p-4">Customer</th>
-                <th className="p-4">Total Amount</th>
-                <th className="p-4">Status</th>
-                <th className="p-4">Date</th>
-                <th className="p-4 text-right">Update Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700 text-sm">
-              {orders.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="p-8 text-center text-gray-500">
-                    No orders placed yet.
-                  </td>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
+          {/* 📱 Responsiveness fix: Horizontal Scroll Wrapper */}
+          <div className="w-full overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[700px]">
+              <thead>
+                <tr className="bg-gray-50 dark:bg-gray-900/50 text-xs font-semibold text-gray-500 uppercase border-b border-gray-200 dark:border-gray-700">
+                  <th className="p-4">Order ID</th>
+                  <th className="p-4">Customer</th>
+                  <th className="p-4">Total Amount</th>
+                  <th className="p-4">Status</th>
+                  <th className="p-4">Date</th>
+                  <th className="p-4 text-right">Update Status</th>
                 </tr>
-              ) : (
-                orders.map((order) => (
-                  <tr key={order._id} className="hover:bg-gray-50 dark:hover:bg-gray-900/40">
-                    <td className="p-4 font-mono text-xs font-semibold text-gray-900 dark:text-white">
-                      #{order._id.substring(order._id.length - 8)}
-                    </td>
-                    <td className="p-4">
-                      <div className="font-medium text-gray-900 dark:text-white">
-                        {order.user?.name || 'Guest User'}
-                      </div>
-                      <div className="text-xs text-gray-500">{order.user?.email || 'N/A'}</div>
-                    </td>
-                    <td className="p-4 font-semibold text-gray-900 dark:text-white">
-                      ${order.totalAmount}
-                    </td>
-                    <td className="p-4">
-                      <span
-                        className={`capitalize px-2.5 py-1 rounded-full text-xs font-semibold ${getStatusBadge(
-                          order.status
-                        )}`}
-                      >
-                        {order.status}
-                      </span>
-                    </td>
-                    <td className="p-4 text-xs text-gray-500">
-                      {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}
-                    </td>
-                    <td className="p-4 text-right">
-                      <select
-                        disabled={updatingId === order._id}
-                        value={order.status}
-                        onChange={(e) => handleStatusChange(order._id, e.target.value)}
-                        className="px-3 py-1.5 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 dark:text-white font-medium"
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="processing">Processing</option>
-                        <option value="shipped">Shipped</option>
-                        <option value="delivered">Delivered</option>
-                        <option value="cancelled">Cancelled</option>
-                      </select>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                {orders.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-gray-500">
+                      No orders placed yet.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  orders.map((order) => (
+                    <tr key={order._id} className="hover:bg-gray-50 dark:hover:bg-gray-900/40">
+                      <td className="p-4 font-mono text-xs font-semibold text-gray-900 dark:text-white">
+                        #{order._id.substring(order._id.length - 8)}
+                      </td>
+                      <td className="p-4">
+                        <div className="font-medium text-gray-900 dark:text-white">
+                          {order.user?.name || 'Guest User'}
+                        </div>
+                        <div className="text-xs text-gray-500">{order.user?.email || 'N/A'}</div>
+                      </td>
+                      <td className="p-4 font-semibold text-gray-900 dark:text-white">
+                        ${order.totalAmount}
+                      </td>
+                      <td className="p-4">
+                        <span
+                          className={`capitalize px-2.5 py-1 rounded-full text-xs font-semibold ${getStatusBadge(
+                            order.status
+                          )}`}
+                        >
+                          {order.status}
+                        </span>
+                      </td>
+                      <td className="p-4 text-xs text-gray-500 whitespace-nowrap">
+                        {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}
+                      </td>
+                      <td className="p-4 text-right">
+                        <select
+                          disabled={updatingId === order._id}
+                          value={order.status}
+                          onChange={(e) => handleStatusChange(order._id, e.target.value)}
+                          className="px-3 py-1.5 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 dark:text-white font-medium"
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="processing">Processing</option>
+                          <option value="shipped">Shipped</option>
+                          <option value="delivered">Delivered</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

@@ -11,12 +11,17 @@ import {
   ShoppingBag, 
   LogOut,
   Bell,
-  ChevronDown
+  ChevronDown,
+  Menu,
+  X
 } from 'lucide-react';
 import NotificationDrawer, { NotificationItem } from '@/components/NotificationDrawer';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+
+  // 📱 Mobile Sidebar State
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // 👤 Admin User Dynamic State
   const [adminUser, setAdminUser] = useState<{ name?: string; email?: string } | null>(null);
@@ -48,7 +53,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     },
   ]);
 
-  // Dynamic user data check from localStorage
   useEffect(() => {
     const checkUser = () => {
       try {
@@ -105,10 +109,27 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="fixed inset-0 z-50 flex min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
       
-      {/* Sidebar */}
-      <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col flex-shrink-0">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+      {/* 📱 Mobile Backdrop Overlay */}
+      {isSidebarOpen && (
+        <div 
+          onClick={() => setIsSidebarOpen(false)}
+          className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm transition-opacity"
+        />
+      )}
+
+      {/* 🟢 Responsive Sidebar (Mobile drawer + Desktop fixed) */}
+      <aside className={`
+        fixed md:static inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col flex-shrink-0 transition-transform duration-300 ease-in-out
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+      `}>
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <h2 className="text-xl font-bold text-indigo-600 dark:text-indigo-400">E-STORE ADMIN</h2>
+          <button 
+            onClick={() => setIsSidebarOpen(false)}
+            className="md:hidden text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+          >
+            <X size={20} />
+          </button>
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
@@ -120,6 +141,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={() => setIsSidebarOpen(false)}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
                   isActive
                     ? 'bg-indigo-600 text-white'
@@ -147,13 +169,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header */}
-        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-8 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-semibold capitalize">
-            {pathname.split('/')[2] || 'Dashboard'}
-          </h1>
+        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 md:px-8 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            {/* 📱 Mobile Menu Toggle Button */}
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="md:hidden p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              aria-label="Toggle Menu"
+            >
+              <Menu size={22} />
+            </button>
+            <h1 className="text-lg md:text-xl font-semibold capitalize truncate">
+              {pathname.split('/')[2] || 'Dashboard'}
+            </h1>
+          </div>
           
-          <div className="flex items-center gap-5">
-            {/* 🔔 Notifications Button */}
+          <div className="flex items-center gap-3 md:gap-5">
+            {/* 🔔 Notifications Trigger */}
             <button
               onClick={() => setIsNotificationOpen(true)}
               className="relative p-2 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -167,28 +199,27 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               )}
             </button>
 
-            {/* 👤 Dynamic Admin User Info */}
+            {/* 👤 Admin Profile Menu */}
             <div className="relative">
               <button
                 onClick={() => setShowDropdown(!showDropdown)}
-                className="flex items-center gap-3 p-1.5 px-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all text-left"
+                className="flex items-center gap-2 md:gap-3 p-1.5 px-2 md:px-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all text-left"
               >
-                <div className="text-right">
-                  <p className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight">
+                <div className="hidden sm:block text-right">
+                  <p className="text-xs md:text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight">
                     {adminUser?.name || 'Admin User'}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400">
                     {adminUser?.email || 'admin@estore.com'}
                   </p>
                 </div>
                 
-                <div className="w-9 h-9 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md">
+                <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-xs md:text-sm shadow-md flex-shrink-0">
                   {adminUser?.name ? adminUser.name.charAt(0).toUpperCase() : 'A'}
                 </div>
                 <ChevronDown className="w-4 h-4 text-gray-400" />
               </button>
 
-              {/* Header Dropdown Menu */}
               {showDropdown && (
                 <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl py-2 z-50">
                   <button
@@ -204,12 +235,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </header>
 
         {/* Page Content */}
-        <main className="p-8 flex-1 overflow-y-auto">
+        <main className="p-4 md:p-8 flex-1 overflow-y-auto">
           {children}
         </main>
       </div>
 
-      {/* 🔔 Notification Drawer Component Render */}
+      {/* 🔔 Notification Drawer */}
       <NotificationDrawer
         isOpen={isNotificationOpen}
         onClose={() => setIsNotificationOpen(false)}
