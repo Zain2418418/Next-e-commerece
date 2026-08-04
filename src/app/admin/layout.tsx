@@ -1,5 +1,6 @@
 'use client';
 
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
@@ -8,11 +9,45 @@ import {
   Package, 
   Layers, 
   ShoppingBag, 
-  LogOut 
+  LogOut,
+  Bell
 } from 'lucide-react';
+import NotificationDrawer, { NotificationItem } from '@/components/NotificationDrawer';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+
+  // 🔔 Admin Notification Drawer States
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [adminNotifications, setAdminNotifications] = useState<NotificationItem[]>([
+    {
+      id: '1',
+      title: 'New Order Received',
+      message: 'Order #1024 has been placed by Zain.',
+      timestamp: '5m ago',
+      read: false,
+    },
+    {
+      id: '2',
+      title: 'Low Stock Alert',
+      message: 'Product "Wireless Keyboard" has less than 5 items left.',
+      timestamp: '45m ago',
+      read: false,
+    },
+    {
+      id: '3',
+      title: 'New User Registered',
+      message: 'A new user registered on E-Store.',
+      timestamp: '2h ago',
+      read: true,
+    },
+  ]);
+
+  const handleMarkAllRead = () => {
+    setAdminNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  };
+
+  const unreadCount = adminNotifications.filter((n) => !n.read).length;
 
   const navItems = [
     { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
@@ -70,6 +105,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {pathname.split('/')[2] || 'Dashboard'}
           </h1>
           <div className="flex items-center gap-4">
+            
+            {/* 🔔 Admin Notifications Trigger Button */}
+            <button
+              onClick={() => setIsNotificationOpen(true)}
+              className="relative p-2 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              aria-label="Admin Notifications"
+            >
+              <Bell size={20} />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 w-4 h-4 bg-indigo-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+
             <span className="text-sm font-medium">Admin User</span>
             <div className="w-9 h-9 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm">
               A
@@ -82,6 +132,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {children}
         </main>
       </div>
+
+      {/* 🔔 Notification Drawer Component Render */}
+      <NotificationDrawer
+        isOpen={isNotificationOpen}
+        onClose={() => setIsNotificationOpen(false)}
+        notifications={adminNotifications}
+        onMarkAllAsRead={handleMarkAllRead}
+      />
     </div>
   );
 }

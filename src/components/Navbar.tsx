@@ -2,7 +2,18 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Menu, X, ShoppingBag, User, Sparkles, Heart, LogOut, ChevronDown } from "lucide-react";
+import {
+  Menu,
+  X,
+  ShoppingBag,
+  User,
+  Sparkles,
+  Heart,
+  LogOut,
+  ChevronDown,
+  Bell,
+} from "lucide-react";
+import NotificationDrawer, { NotificationItem } from "./NotificationDrawer";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -10,6 +21,31 @@ export default function Navbar() {
   const [wishlistCount, setWishlistCount] = useState(0);
   const [user, setUser] = useState<{ name?: string; email?: string } | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
+
+  // 🔔 Notification Drawer States
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([
+    {
+      id: "1",
+      title: "Order Confirmed",
+      message: "Your order #1088 has been successfully placed.",
+      timestamp: "10m ago",
+      read: false,
+    },
+    {
+      id: "2",
+      title: "Special Offer Available",
+      message: "Check out 20% discount on summer category items!",
+      timestamp: "1h ago",
+      read: false,
+    },
+  ]);
+
+  const handleMarkAllRead = () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  };
+
+  const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
 
   // Check logged in user state and cart/wishlist counters
   useEffect(() => {
@@ -143,6 +179,20 @@ export default function Navbar() {
 
             {/* 🛒 Icons & Profile Section */}
             <div className="flex items-center space-x-2 sm:space-x-3">
+              {/* 🔔 Notification Button */}
+              <button
+                onClick={() => setIsNotificationOpen(true)}
+                className="relative p-2.5 text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/70 rounded-xl transition-all duration-200 active:scale-95"
+                aria-label="Notifications"
+              >
+                <Bell className="h-5 w-5" />
+                {unreadNotificationsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-[11px] font-bold text-white shadow-sm ring-2 ring-white animate-pulse">
+                    {unreadNotificationsCount}
+                  </span>
+                )}
+              </button>
+
               {/* ❤️ Wishlist Button */}
               <Link
                 href="/wishlist"
@@ -179,7 +229,11 @@ export default function Navbar() {
                     className="flex items-center gap-2 p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-semibold transition-all"
                   >
                     <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs">
-                      {user.name ? user.name.charAt(0).toUpperCase() : <User className="w-4 h-4" />}
+                      {user.name ? (
+                        user.name.charAt(0).toUpperCase()
+                      ) : (
+                        <User className="w-4 h-4" />
+                      )}
                     </div>
                     <span className="hidden sm:inline max-w-[100px] truncate">
                       {user.name || "Account"}
@@ -191,8 +245,12 @@ export default function Navbar() {
                   {showDropdown && (
                     <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-100 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                       <div className="px-4 py-2 border-b border-slate-100">
-                        <p className="text-xs font-bold text-slate-900 truncate">{user.name}</p>
-                        <p className="text-[11px] text-slate-500 truncate">{user.email}</p>
+                        <p className="text-xs font-bold text-slate-900 truncate">
+                          {user.name}
+                        </p>
+                        <p className="text-[11px] text-slate-500 truncate">
+                          {user.email}
+                        </p>
                       </div>
                       <button
                         onClick={handleLogout}
@@ -285,6 +343,14 @@ export default function Navbar() {
           </div>
         )}
       </nav>
+
+      {/* 🔔 Notification Drawer Component Render */}
+      <NotificationDrawer
+        isOpen={isNotificationOpen}
+        onClose={() => setIsNotificationOpen(false)}
+        notifications={notifications}
+        onMarkAllAsRead={handleMarkAllRead}
+      />
     </header>
   );
 }
