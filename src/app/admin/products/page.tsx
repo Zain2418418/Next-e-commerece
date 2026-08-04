@@ -1,140 +1,142 @@
 'use client';
 
-import { useState } from 'react';
-import { Plus, Search, Edit3, Trash2, Eye } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Trash2, Loader2, PackageCheck } from 'lucide-react';
+
+interface Product {
+  _id: string;
+  name: string;
+  price: number;
+  category: string;
+  stock: number;
+  imageUrl?: string;
+}
 
 export default function AdminProductsPage() {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  // Dummy Products Data (Front-end UI testing ke liye)
-  const dummyProducts = [
-    {
-      id: '1',
-      name: 'Wireless Bluetooth Headphones',
-      category: 'Electronics',
-      price: 89.99,
-      stock: 25,
-      image: 'https://via.placeholder.com/50',
-    },
-    {
-      id: '2',
-      name: 'Ergonomic Gaming Chair',
-      category: 'Furniture',
-      price: 199.99,
-      stock: 8,
-      image: 'https://via.placeholder.com/50',
-    },
-    {
-      id: '3',
-      name: 'Smart Watch Series 7',
-      category: 'Electronics',
-      price: 299.00,
-      stock: 0, // Out of stock example
-      image: 'https://via.placeholder.com/50',
-    },
-  ];
+  // Fetch real products from MongoDB API
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/admin/products');
+      const data = await res.json();
+
+      if (data.success) {
+        setProducts(data.products || []);
+      } else {
+        setError(data.error || 'Failed to fetch products');
+      }
+    } catch (err) {
+      setError('Something went wrong fetching products');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  // Delete product action
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this product?')) return;
+
+    try {
+      const res = await fetch(`/api/admin/products/${id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setProducts((prev) => prev.filter((item) => item._id !== id));
+      } else {
+        alert(data.error || 'Failed to delete product');
+      }
+    } catch (err) {
+      alert('Error deleting product');
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header Section */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Products Management</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <PackageCheck className="text-indigo-600" /> Products Management
+          </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Aap ke store ke tamam products yahan manage karein.
+            Live catalog synced with MongoDB database.
           </p>
         </div>
-        <button className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors">
-          <Plus size={18} />
-          Add New Product
-        </button>
       </div>
 
-      {/* Search & Filter Bar */}
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col md:flex-row gap-4 justify-between items-center">
-        <div className="relative w-full md:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-          <input
-            type="text"
-            placeholder="Search product name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
+      {loading ? (
+        <div className="flex justify-center items-center py-16">
+          <Loader2 className="animate-spin text-indigo-600" size={36} />
         </div>
-
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <select className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full md:w-auto">
-            <option value="all">All Categories</option>
-            <option value="electronics">Electronics</option>
-            <option value="furniture">Furniture</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Products Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
+      ) : error ? (
+        <div className="p-4 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>
+      ) : (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden border border-gray-200 dark:border-gray-700">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                <th className="p-4">Product</th>
+              <tr className="bg-gray-50 dark:bg-gray-900/50 text-xs font-semibold text-gray-500 uppercase border-b border-gray-200 dark:border-gray-700">
+                <th className="p-4">Product Name</th>
                 <th className="p-4">Category</th>
                 <th className="p-4">Price</th>
-                <th className="p-4">Stock Status</th>
+                <th className="p-4">Stock</th>
                 <th className="p-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700 text-sm">
-              {dummyProducts.map((product) => (
-                <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                  {/* Name & Image */}
-                  <td className="p-4 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 overflow-hidden flex-shrink-0">
-                      <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-                    </div>
-                    <span className="font-semibold text-gray-900 dark:text-gray-100">{product.name}</span>
-                  </td>
-
-                  {/* Category */}
-                  <td className="p-4 text-gray-600 dark:text-gray-300">{product.category}</td>
-
-                  {/* Price */}
-                  <td className="p-4 font-bold text-gray-900 dark:text-gray-100">${product.price.toFixed(2)}</td>
-
-                  {/* Stock */}
-                  <td className="p-4">
-                    {product.stock > 0 ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                        In Stock ({product.stock})
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
-                        Out of Stock
-                      </span>
-                    )}
-                  </td>
-
-                  {/* Action Buttons */}
-                  <td className="p-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors" title="View">
-                        <Eye size={16} />
-                      </button>
-                      <button className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors" title="Edit">
-                        <Edit3 size={16} />
-                      </button>
-                      <button className="p-2 text-gray-500 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors" title="Delete">
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+              {products.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="p-8 text-center text-gray-500">
+                    No products found in database.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                products.map((product) => (
+                  <tr key={product._id} className="hover:bg-gray-50 dark:hover:bg-gray-900/40">
+                    <td className="p-4 font-medium text-gray-900 dark:text-white">
+                      {product.name}
+                    </td>
+                    <td className="p-4 text-gray-600 dark:text-gray-300">
+                      {product.category || 'Uncategorized'}
+                    </td>
+                    <td className="p-4 font-semibold text-gray-900 dark:text-white">
+                      ${product.price}
+                    </td>
+                    <td className="p-4">
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                          product.stock > 0
+                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                            : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                        }`}
+                      >
+                        {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
+                      </span>
+                    </td>
+                    <td className="p-4 text-right">
+                      <button
+                        onClick={() => handleDelete(product._id)}
+                        className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition"
+                        title="Delete Product"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
-      </div>
+      )}
     </div>
   );
 }

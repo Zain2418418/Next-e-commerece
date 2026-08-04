@@ -1,125 +1,172 @@
 'use client';
 
-import { useState } from 'react';
-import { Plus, Edit3, Trash2, Layers } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { FolderPlus, Trash2, Loader2, Tags } from 'lucide-react';
+
+interface Category {
+  _id: string;
+  name: string;
+  slug?: string;
+}
 
 export default function AdminCategoriesPage() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  
+  // New Category Form State
   const [categoryName, setCategoryName] = useState('');
+  const [adding, setAdding] = useState(false);
 
-  // Dummy Categories Data (Frontend Testing ke liye)
-  const dummyCategories = [
-    { id: '1', name: 'Electronics', slug: 'electronics', productCount: 18 },
-    { id: '2', name: 'Furniture', slug: 'furniture', productCount: 12 },
-    { id: '3', name: 'Fashion & Apparel', slug: 'fashion-apparel', productCount: 25 },
-    { id: '4', name: 'Books & Stationery', slug: 'books-stationery', productCount: 9 },
-  ];
+  // 1. Fetch categories from backend API
+  const fetchCategories = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/admin/categories');
+      const data = await res.json();
+
+      if (data.success) {
+        setCategories(data.categories || []);
+      } else {
+        setError(data.error || 'Failed to fetch categories');
+      }
+    } catch (err) {
+      setError('Something went wrong fetching categories');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  // 2. Add New Category
+  const handleAddCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!categoryName.trim()) return;
+
+    try {
+      setAdding(true);
+      const res = await fetch('/api/admin/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: categoryName }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setCategories((prev) => [...prev, data.category]);
+        setCategoryName('');
+      } else {
+        alert(data.error || 'Failed to add category');
+      }
+    } catch (err) {
+      alert('Error adding category');
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  // 3. Delete Category
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this category?')) return;
+
+    try {
+      const res = await fetch(`/api/admin/categories/${id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setCategories((prev) => prev.filter((item) => item._id !== id));
+      } else {
+        alert(data.error || 'Failed to delete category');
+      }
+    } catch (err) {
+      alert('Error deleting category');
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header Section */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Category Management</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Store ki tamam product categories yahan organize karein.
-          </p>
-        </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors"
-        >
-          <Plus size={18} />
-          Add Category
-        </button>
+    <div className="p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+          <Tags className="text-indigo-600" /> Categories Management
+        </h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          Create and manage product categories dynamically.
+        </p>
+      </div>
+
+      {/* Add Category Form */}
+      <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow mb-8 border border-gray-200 dark:border-gray-700">
+        <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">
+          Add New Category
+        </h2>
+        <form onSubmit={handleAddCategory} className="flex gap-3 max-w-lg">
+          <input
+            type="text"
+            value={categoryName}
+            onChange={(e) => setCategoryName(e.target.value)}
+            placeholder="Category Name (e.g. Electronics, Clothing)"
+            required
+            className="flex-1 px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 dark:text-white"
+          />
+          <button
+            type="submit"
+            disabled={adding}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg flex items-center gap-2 transition disabled:opacity-50"
+          >
+            {adding ? <Loader2 className="animate-spin" size={16} /> : <FolderPlus size={16} />}
+            Add
+          </button>
+        </form>
       </div>
 
       {/* Categories Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
+      {loading ? (
+        <div className="flex justify-center items-center py-16">
+          <Loader2 className="animate-spin text-indigo-600" size={36} />
+        </div>
+      ) : error ? (
+        <div className="p-4 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>
+      ) : (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden border border-gray-200 dark:border-gray-700">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <tr className="bg-gray-50 dark:bg-gray-900/50 text-xs font-semibold text-gray-500 uppercase border-b border-gray-200 dark:border-gray-700">
                 <th className="p-4">Category Name</th>
-                <th className="p-4">Slug</th>
-                <th className="p-4">Total Products</th>
+                <th className="p-4">ID</th>
                 <th className="p-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700 text-sm">
-              {dummyCategories.map((cat) => (
-                <tr key={cat.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                  {/* Name */}
-                  <td className="p-4 font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                    <Layers size={16} className="text-indigo-500" />
-                    {cat.name}
-                  </td>
-
-                  {/* Slug */}
-                  <td className="p-4 font-mono text-xs text-gray-500 dark:text-gray-400">
-                    /{cat.slug}
-                  </td>
-
-                  {/* Product Count */}
-                  <td className="p-4">
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-400">
-                      {cat.productCount} Products
-                    </span>
-                  </td>
-
-                  {/* Actions */}
-                  <td className="p-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors" title="Edit">
-                        <Edit3 size={16} />
-                      </button>
-                      <button className="p-2 text-gray-500 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors" title="Delete">
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+              {categories.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="p-8 text-center text-gray-500">
+                    No categories created yet.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                categories.map((cat) => (
+                  <tr key={cat._id} className="hover:bg-gray-50 dark:hover:bg-gray-900/40">
+                    <td className="p-4 font-medium text-gray-900 dark:text-white">{cat.name}</td>
+                    <td className="p-4 text-xs font-mono text-gray-400">{cat._id}</td>
+                    <td className="p-4 text-right">
+                      <button
+                        onClick={() => handleDelete(cat._id)}
+                        className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition"
+                        title="Delete Category"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
-        </div>
-      </div>
-
-      {/* Add Category Modal (Popup) */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-200 dark:border-gray-700 shadow-xl space-y-4">
-            <h2 className="text-xl font-bold">Add New Category</h2>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Category Name</label>
-              <input
-                type="text"
-                placeholder="e.g. Footwear"
-                value={categoryName}
-                onChange={(e) => setCategoryName(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  setIsModalOpen(false);
-                  setCategoryName('');
-                }}
-                className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
-              >
-                Save Category
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </div>
