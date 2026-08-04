@@ -46,14 +46,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Existing User Check
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
-    if (existingUser) {
-      return NextResponse.json(
-        { success: false, error: 'An account with this email already exists.' },
-        { status: 400 }
-      );
-    }
+    const normalizedEmail = email.toLowerCase().trim();
 
     // 🔒 Manual Password Hashing
     const salt = await bcrypt.genSalt(10);
@@ -63,15 +56,35 @@ export async function POST(req: Request) {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 Minutes validity
 
-    // Save user with hashed password
-    await User.create({
-      name,
-      email: email.toLowerCase(),
-      password: hashedPassword,
-      isVerified: false,
-      otp,
-      otpExpires,
-    });
+    // 2. Existing User Check & Handling Unverified Accounts
+    const existingUser = await User.findOne({ email: normalizedEmail });
+
+    if (existingUser) {
+      // 🟢 Agar user pehle se registered hai lekin verified NAHI hai
+      if (!existingUser.isVerified) {
+        existingUser.name = name;
+        existingUser.password = hashedPassword;
+        existingUser.otp = otp;
+        existingUser.otpExpires = otpExpires;
+        await existingUser.save();
+      } else {
+        // 🔴 Agar account already verified hai
+        return NextResponse.json(
+          { success: false, error: 'An account with this email already exists.' },
+          { status: 400 }
+        );
+      }
+    } else {
+      // 🟢 Fresh Signup: Save user with hashed password
+      await User.create({
+        name,
+        email: normalizedEmail,
+        password: hashedPassword,
+        isVerified: false,
+        otp,
+        otpExpires,
+      });
+    }
 
     // 📧 Send OTP via Gmail SMTP
     try {
@@ -85,7 +98,7 @@ export async function POST(req: Request) {
 
       await transporter.sendMail({
         from: `"E-STORE" <${process.env.GMAIL_USER}>`,
-        to: email,
+        to: normalizedEmail,
         subject: 'Verify Your Account - One-Time Password (OTP)',
         html: `
           <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 12px; text-align: center;">
@@ -101,10 +114,13 @@ export async function POST(req: Request) {
       console.error('Nodemailer OTP Error:', emailError);
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: 'OTP sent to your email. Please verify your account.' 
-    }, { status: 201 });
+    return NextResponse.json(
+      { 
+        success: true, 
+        message: 'OTP sent to your email. Please verify your account.' 
+      }, 
+      { status: existingUser ? 200 : 201 }
+    );
 
   } catch (error: any) {
     console.error('Signup Error:', error);

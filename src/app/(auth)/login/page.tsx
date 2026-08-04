@@ -15,6 +15,7 @@ function LoginForm() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isUnverified, setIsUnverified] = useState(false);
 
   // 2. Auto-redirect logic: Agar user PEHLE SE logged in hai toh directly Checkout / Redirect target par bhejo
   useEffect(() => {
@@ -29,6 +30,7 @@ function LoginForm() {
     e.preventDefault();
     setError("");
     setSuccess("");
+    setIsUnverified(false);
     setLoading(true);
 
     try {
@@ -41,7 +43,18 @@ function LoginForm() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || data.error || "Invalid credentials or server error");
+        const errorMsg = data.message || data.error || "Invalid credentials or server error";
+        
+        // Check if error is related to unverified email
+        if (
+          errorMsg.toLowerCase().includes("not verified") || 
+          errorMsg.toLowerCase().includes("otp") ||
+          data.isUnverified
+        ) {
+          setIsUnverified(true);
+        }
+
+        throw new Error(errorMsg);
       }
 
       // 💾 User save in localStorage for state sync
@@ -60,6 +73,14 @@ function LoginForm() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerifyClick = () => {
+    if (formData.email) {
+      router.push(`/verify-email?email=${encodeURIComponent(formData.email)}`);
+    } else {
+      router.push("/verify-email");
     }
   };
 
@@ -82,8 +103,19 @@ function LoginForm() {
         </div>
 
         {error && (
-          <div className="rounded-md bg-red-50 p-4 text-sm text-red-700 border border-red-100">
-            {error}
+          <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700 border border-red-100 space-y-3">
+            <p>{error}</p>
+
+            {/* 🟢 Verification Action Link / Button if unverified */}
+            {isUnverified && (
+              <button
+                type="button"
+                onClick={handleVerifyClick}
+                className="w-full text-center py-2 px-3 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
+              >
+                Verify Email & Enter OTP
+              </button>
+            )}
           </div>
         )}
 
