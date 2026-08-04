@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
@@ -10,12 +10,17 @@ import {
   Layers, 
   ShoppingBag, 
   LogOut,
-  Bell
+  Bell,
+  ChevronDown
 } from 'lucide-react';
 import NotificationDrawer, { NotificationItem } from '@/components/NotificationDrawer';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+
+  // 👤 Admin User Dynamic State
+  const [adminUser, setAdminUser] = useState<{ name?: string; email?: string } | null>(null);
+  const [showDropdown, setShowDropdown] = useState(false);
 
   // 🔔 Admin Notification Drawer States
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -43,6 +48,46 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     },
   ]);
 
+  // Dynamic user data check from localStorage
+  useEffect(() => {
+    const checkUser = () => {
+      try {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          setAdminUser(JSON.parse(storedUser));
+        } else {
+          setAdminUser(null);
+        }
+      } catch (e) {
+        setAdminUser(null);
+      }
+    };
+
+    checkUser();
+    window.addEventListener('storage', checkUser);
+    window.addEventListener('user-updated', checkUser);
+
+    return () => {
+      window.removeEventListener('storage', checkUser);
+      window.removeEventListener('user-updated', checkUser);
+    };
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) {
+      console.error('Logout error:', e);
+    } finally {
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      setAdminUser(null);
+      setShowDropdown(false);
+      window.dispatchEvent(new Event('user-updated'));
+      window.location.href = '/login';
+    }
+  };
+
   const handleMarkAllRead = () => {
     setAdminNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
@@ -58,7 +103,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   ];
 
   return (
-    // fixed inset-0 z-50 add karne se yeh store ke navbar ko overlay karke poori screen le lega
     <div className="fixed inset-0 z-50 flex min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
       
       {/* Sidebar */}
@@ -90,7 +134,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </nav>
 
         <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-          <button className="flex items-center gap-3 w-full px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors">
+          <button 
+            onClick={handleLogout}
+            className="flex items-center gap-3 w-full px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors"
+          >
             <LogOut size={18} />
             Logout
           </button>
@@ -104,9 +151,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <h1 className="text-xl font-semibold capitalize">
             {pathname.split('/')[2] || 'Dashboard'}
           </h1>
-          <div className="flex items-center gap-4">
-            
-            {/* 🔔 Admin Notifications Trigger Button */}
+          
+          <div className="flex items-center gap-5">
+            {/* 🔔 Notifications Button */}
             <button
               onClick={() => setIsNotificationOpen(true)}
               className="relative p-2 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -120,9 +167,38 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               )}
             </button>
 
-            <span className="text-sm font-medium">Admin User</span>
-            <div className="w-9 h-9 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm">
-              A
+            {/* 👤 Dynamic Admin User Info */}
+            <div className="relative">
+              <button
+                onClick={() => setShowDropdown(!showDropdown)}
+                className="flex items-center gap-3 p-1.5 px-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all text-left"
+              >
+                <div className="text-right">
+                  <p className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight">
+                    {adminUser?.name || 'Admin User'}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {adminUser?.email || 'admin@estore.com'}
+                  </p>
+                </div>
+                
+                <div className="w-9 h-9 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md">
+                  {adminUser?.name ? adminUser.name.charAt(0).toUpperCase() : 'A'}
+                </div>
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              </button>
+
+              {/* Header Dropdown Menu */}
+              {showDropdown && (
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl py-2 z-50">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 text-left transition-colors"
+                  >
+                    <LogOut size={16} /> Logout
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </header>
