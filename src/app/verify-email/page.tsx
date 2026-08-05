@@ -20,11 +20,12 @@ function VerifyEmailForm() {
   useEffect(() => {
     const emailParam = searchParams.get('email');
     if (emailParam) {
-      setEmail(emailParam);
+      // Decode %40 to @ and clean string
+      setEmail(decodeURIComponent(emailParam).trim());
     }
   }, [searchParams]);
 
-  // Resend Timer Countdown
+  // Timer Countdown
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (timer > 0) {
@@ -45,7 +46,7 @@ function VerifyEmailForm() {
       const res = await fetch('/api/auth/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otp }),
+        body: JSON.stringify({ email: email.toLowerCase(), otp }),
       });
 
       const data = await res.json();
@@ -55,8 +56,6 @@ function VerifyEmailForm() {
       }
 
       setSuccess('Account verified successfully! Redirecting to login...');
-      
-      // 2 seconds ke baad login page par bhej dein
       setTimeout(() => {
         router.push('/login');
       }, 2000);
@@ -70,7 +69,7 @@ function VerifyEmailForm() {
 
   const handleResendOtp = async () => {
     if (!email) {
-      setError('Email address is missing.');
+      setError('Email address is missing from URL.');
       return;
     }
 
@@ -82,7 +81,7 @@ function VerifyEmailForm() {
       const res = await fetch('/api/auth/resend-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: email.toLowerCase() }),
       });
 
       const data = await res.json();
@@ -91,8 +90,8 @@ function VerifyEmailForm() {
         throw new Error(data.error || 'Failed to resend OTP');
       }
 
-      setSuccess('A new OTP has been sent to your email.');
-      setTimer(60); // 60 seconds ka cooldown timer start karein
+      setSuccess(data.message || 'A new OTP code has been sent to your email.');
+      setTimer(60); // 60s cooldown
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -114,13 +113,13 @@ function VerifyEmailForm() {
         </div>
 
         {error && (
-          <div className="rounded-md bg-red-50 p-4 text-sm text-red-700 border border-red-100">
+          <div className="rounded-md bg-red-50 p-4 text-sm text-red-700 border border-red-100 break-words">
             {error}
           </div>
         )}
 
         {success && (
-          <div className="rounded-md bg-green-50 p-4 text-sm text-green-700 border border-green-100">
+          <div className="rounded-md bg-green-50 p-4 text-sm text-green-700 border border-green-100 break-words">
             {success}
           </div>
         )}
@@ -137,8 +136,8 @@ function VerifyEmailForm() {
               required
               maxLength={6}
               value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))} // Sirf numbers allow karega
-              className="relative block w-full text-center appearance-none rounded-lg border border-gray-300 px-3 py-3 text-2xl font-bold tracking-[10px] text-gray-900 focus:z-10 focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-2xl transition-all duration-200"
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+              className="relative block w-full text-center appearance-none rounded-lg border border-gray-300 px-3 py-3 text-2xl font-bold tracking-[10px] text-gray-900 focus:z-10 focus:border-blue-500 focus:outline-none focus:ring-blue-500 transition-all duration-200"
               placeholder="000000"
             />
           </div>
@@ -154,7 +153,6 @@ function VerifyEmailForm() {
           </div>
         </form>
 
-        {/* ⬇️ Resend OTP Section ⬇️ */}
         <div className="text-center mt-4 pt-2 border-t border-gray-100">
           <p className="text-sm text-gray-600">
             Didn't receive the code?{' '}
@@ -177,7 +175,6 @@ function VerifyEmailForm() {
   );
 }
 
-// Suspense wrap karein kyunki useSearchParams() use ho raha hai build errors se bachne ke liye
 export default function VerifyEmailPage() {
   return (
     <Suspense fallback={<div className="text-center mt-20">Loading...</div>}>

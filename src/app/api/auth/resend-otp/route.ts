@@ -6,32 +6,36 @@ import nodemailer from 'nodemailer';
 export async function POST(req: Request) {
   try {
     await dbConnect();
-    const { email } = await req.json();
+    const body = await req.json();
+    let email = body.email;
 
     if (!email) {
       return NextResponse.json({ success: false, error: 'Email is required.' }, { status: 400 });
     }
 
-    const user = await User.findOne({ email });
+    // Clean Email formatting
+    email = decodeURIComponent(email).trim().toLowerCase();
+
+    // Find User
+    const user = await User.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
 
     if (!user) {
-      return NextResponse.json({ success: false, error: 'User not found.' }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'User account not found.' }, { status: 404 });
     }
 
     if (user.isVerified) {
-      return NextResponse.json({ success: false, error: 'Account is already verified.' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Account is already verified. Please sign in.' }, { status: 400 });
     }
 
-    // Naya 6-digit OTP generate karein
+    // New 6-digit OTP
     const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
 
-    // Save updated OTP in DB
     user.otp = newOtp;
     user.otpExpires = otpExpires;
     await user.save();
 
-    // Nodemailer Transporter Setup
+    // Nodemailer Setup
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -40,20 +44,27 @@ export async function POST(req: Request) {
       },
     });
 
-    // Send Email
     await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+      from: `"Support" <${process.env.GMAIL_USER}>`,
       to: email,
       subject: 'Your New OTP Verification Code',
-      text: `Your new OTP code is ${newOtp}. It will expire in 10 minutes.`,
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+          <h2>Email Verification</h2>
+          <p>Your new 6-digit verification code is:</p>
+          <h1 style="background: #f4f4f4; padding: 10px 20px; display: inline-block; letter-spacing: 4px;">${newOtp}</h1>
+          <p>This code will expire in 10 minutes.</p>
+        </div>
+      `,
     });
 
     return NextResponse.json({ 
       success: true, 
-      message: 'A new OTP has been sent to your email.' 
+      message: 'New OTP code sent successfully to your email!' 
     }, { status: 200 });
 
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error('RESEND OTP ERROR:', error);
+    return NextResponse.json({ success: false, error: error.message || 'Server error sending email.' }, { status: 500 });
   }
 }
