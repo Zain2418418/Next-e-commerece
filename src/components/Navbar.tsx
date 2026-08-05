@@ -22,25 +22,26 @@ export default function Navbar() {
   const [user, setUser] = useState<{ name?: string; email?: string } | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
 
-  // 🔔 Notification Drawer States
+  // 🔔 Dynamic User Notifications State
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([
     {
       id: "1",
-      title: "Order Confirmed",
-      message: "Your order #1088 has been successfully placed.",
-      timestamp: "10m ago",
+      title: "Welcome to E-Store!",
+      message: "Check out our latest arrivals and discounts.",
+      timestamp: "Just now",
       read: false,
     },
     {
       id: "2",
-      title: "Special Offer Available",
-      message: "Check out 20% discount on summer category items!",
+      title: "Special Offer",
+      message: "Enjoy free shipping on all orders above $50!",
       timestamp: "1h ago",
       read: false,
     },
   ]);
 
+  // Mark all notifications as read
   const handleMarkAllRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
@@ -117,23 +118,17 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     try {
-      // 1. Backend Cookie Clear
       await fetch("/api/auth/logout", { method: "POST" });
     } catch (e) {
       console.error("Logout error:", e);
     } finally {
-      // 2. Clear Local Storage Data
       localStorage.removeItem("user");
       localStorage.removeItem("token");
 
-      // 3. Reset Local State
       setUser(null);
       setShowDropdown(false);
 
-      // 4. Notify other components
       window.dispatchEvent(new Event("user-updated"));
-
-      // 5. Hard Redirect to Login Page
       window.location.href = "/login";
     }
   };
