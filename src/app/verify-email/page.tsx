@@ -13,12 +13,27 @@ function VerifyEmailForm() {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Resend States
+  const [resendLoading, setResendLoading] = useState(false);
+  const [timer, setTimer] = useState(0);
+
   useEffect(() => {
     const emailParam = searchParams.get('email');
     if (emailParam) {
       setEmail(emailParam);
     }
   }, [searchParams]);
+
+  // Resend Timer Countdown
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [timer]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,6 +65,38 @@ function VerifyEmailForm() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (!email) {
+      setError('Email address is missing.');
+      return;
+    }
+
+    setError('');
+    setSuccess('');
+    setResendLoading(true);
+
+    try {
+      const res = await fetch('/api/auth/resend-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to resend OTP');
+      }
+
+      setSuccess('A new OTP has been sent to your email.');
+      setTimer(60); // 60 seconds ka cooldown timer start karein
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -106,6 +153,25 @@ function VerifyEmailForm() {
             </button>
           </div>
         </form>
+
+        {/* ⬇️ Resend OTP Section ⬇️ */}
+        <div className="text-center mt-4 pt-2 border-t border-gray-100">
+          <p className="text-sm text-gray-600">
+            Didn't receive the code?{' '}
+            <button
+              type="button"
+              onClick={handleResendOtp}
+              disabled={resendLoading || timer > 0}
+              className="font-semibold text-blue-600 hover:text-blue-800 disabled:text-gray-400 transition-colors"
+            >
+              {resendLoading
+                ? 'Sending...'
+                : timer > 0
+                ? `Resend in ${timer}s`
+                : 'Resend OTP'}
+            </button>
+          </p>
+        </div>
       </div>
     </div>
   );
