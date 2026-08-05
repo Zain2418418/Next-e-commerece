@@ -16,6 +16,7 @@ function LoginForm() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [isUnverified, setIsUnverified] = useState(false);
+  const [resendingOtp, setResendingOtp] = useState(false);
 
   // 2. Auto-redirect logic: Agar user PEHLE SE logged in hai toh directly Checkout / Redirect target par bhejo
   useEffect(() => {
@@ -76,11 +77,29 @@ function LoginForm() {
     }
   };
 
-  const handleVerifyClick = () => {
-    if (formData.email) {
-      router.push(`/verify-email?email=${encodeURIComponent(formData.email)}`);
-    } else {
+  // 🔴 FIX: Red button click handle with API trigger for fresh OTP
+  const handleVerifyClick = async () => {
+    const targetEmail = formData.email.trim();
+
+    if (!targetEmail) {
       router.push("/verify-email");
+      return;
+    }
+
+    setResendingOtp(true);
+    try {
+      // 1. Trigger backend to generate & send NEW OTP email immediately
+      await fetch("/api/auth/resend-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: targetEmail }),
+      });
+    } catch (err) {
+      console.error("Error triggering auto-resend on login button click:", err);
+    } finally {
+      setResendingOtp(false);
+      // 2. Redirect user to verify page with encoded email
+      router.push(`/verify-email?email=${encodeURIComponent(targetEmail)}`);
     }
   };
 
@@ -111,9 +130,10 @@ function LoginForm() {
               <button
                 type="button"
                 onClick={handleVerifyClick}
-                className="w-full text-center py-2 px-3 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
+                disabled={resendingOtp}
+                className="w-full text-center py-2.5 px-3 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm cursor-pointer"
               >
-                Verify Email & Enter OTP
+                {resendingOtp ? "Sending New OTP..." : "Verify Email & Enter OTP"}
               </button>
             )}
           </div>
