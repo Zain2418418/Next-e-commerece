@@ -9,6 +9,7 @@ import {
   Package, 
   Layers, 
   ShoppingBag, 
+  MessageSquare, // 👈 Added MessageSquare Icon
   LogOut,
   Bell,
   ChevronDown,
@@ -138,6 +139,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Product Management', href: '/admin/products', icon: Package },
     { name: 'Category Management', href: '/admin/categories', icon: Layers },
     { name: 'Order Management', href: '/admin/orders', icon: ShoppingBag },
+    { name: 'Live Support Chat', href: '/admin/chat', icon: MessageSquare }, // 👈 Live Chat Link Added
   ];
 
   return (
