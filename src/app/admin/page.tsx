@@ -14,12 +14,24 @@ import {
   Pie,
   Cell,
 } from 'recharts';
+import Pagination from '@/components/Pagination';
 
 interface DashboardStats {
   totalRevenue: number;
   totalOrders: number;
   totalProducts: number;
   totalUsers: number;
+}
+
+interface Order {
+  _id: string;
+  user: {
+    name: string;
+    email: string;
+  };
+  totalAmount: number;
+  status: string;
+  createdAt?: string;
 }
 
 export default function AdminDashboardPage() {
@@ -29,24 +41,37 @@ export default function AdminDashboardPage() {
     totalProducts: 0,
     totalUsers: 0,
   });
+  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔄 Step 5: Live Database Stats Fetching
+  // 📄 Pagination State for Dashboard Recent Orders Table
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
   useEffect(() => {
-    async function fetchStats() {
+    async function fetchDashboardData() {
       try {
-        const res = await fetch('/api/admin/stats');
-        const data = await res.json();
-        if (data.success) {
-          setStatsData(data.stats);
+        setLoading(true);
+        // Fetch stats
+        const statsRes = await fetch('/api/admin/stats');
+        const statsJson = await statsRes.json();
+        if (statsJson.success) {
+          setStatsData(statsJson.stats);
+        }
+
+        // Fetch recent orders for table preview
+        const ordersRes = await fetch('/api/admin/orders');
+        const ordersJson = await ordersRes.json();
+        if (ordersJson.success) {
+          setRecentOrders(ordersJson.orders || []);
         }
       } catch (error) {
-        console.error('Failed to fetch stats:', error);
+        console.error('Failed to fetch dashboard data:', error);
       } finally {
         setLoading(false);
       }
     }
-    fetchStats();
+    fetchDashboardData();
   }, []);
 
   const stats = [
@@ -76,7 +101,6 @@ export default function AdminDashboardPage() {
     },
   ];
 
-  // Dummy Chart Data (Monthly Revenue)
   const salesData = [
     { month: 'Jan', revenue: 4000 },
     { month: 'Feb', revenue: 3000 },
@@ -86,7 +110,6 @@ export default function AdminDashboardPage() {
     { month: 'Jun', revenue: statsData.totalRevenue || 12450 },
   ];
 
-  // Category Breakdown Data (Pie Chart)
   const categoryData = [
     { name: 'Electronics', value: 45, color: '#6366f1' },
     { name: 'Furniture', value: 25, color: '#3b82f6' },
@@ -94,13 +117,32 @@ export default function AdminDashboardPage() {
     { name: 'Books', value: 10, color: '#10b981' },
   ];
 
+  // 📄 Pagination Logic for Recent Orders
+  const totalPages = Math.ceil(recentOrders.length / itemsPerPage);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentOrders = recentOrders.slice(indexOfFirstItem, indexOfLastItem);
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'delivered':
+        return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
+      case 'shipped':
+        return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
+      case 'cancelled':
+        return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
+      default:
+        return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400';
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold">Analytics Overview</h1>
+        <h1 className="text-2xl font-bold">Analytics & Dashboard Overview</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Store ki sales, growth aur revenue insights check karein.
+          Store ki sales, growth aur recent activity insights check karein.
         </p>
       </div>
 
@@ -140,7 +182,6 @@ export default function AdminDashboardPage() {
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Revenue Growth Chart (2 Columns Wide) */}
         <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
           <h2 className="text-lg font-bold mb-4">Revenue Overview (2026)</h2>
           <div className="h-72 w-full">
@@ -180,7 +221,6 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Category Share (1 Column Wide) */}
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col justify-between">
           <h2 className="text-lg font-bold mb-2">Category Sales Share</h2>
           <div className="h-56 w-full">
@@ -210,7 +250,6 @@ export default function AdminDashboardPage() {
               </PieChart>
             </ResponsiveContainer>
           </div>
-          {/* Custom Legend */}
           <div className="grid grid-cols-2 gap-2 mt-2">
             {categoryData.map((cat, i) => (
               <div key={i} className="flex items-center gap-2 text-xs">
@@ -225,6 +264,78 @@ export default function AdminDashboardPage() {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Recent Activity Table with Pagination */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Recent Store Orders</h2>
+        </div>
+
+        <div className="w-full overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[600px]">
+            <thead>
+              <tr className="bg-gray-50 dark:bg-gray-900/50 text-xs font-semibold text-gray-500 uppercase border-b border-gray-200 dark:border-gray-700">
+                <th className="p-4">Order ID</th>
+                <th className="p-4">Customer</th>
+                <th className="p-4">Total Amount</th>
+                <th className="p-4">Status</th>
+                <th className="p-4">Date</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="p-8 text-center text-gray-500">
+                    <Loader2 className="animate-spin text-indigo-600 mx-auto mb-2" size={24} />
+                    Loading recent orders...
+                  </td>
+                </tr>
+              ) : currentOrders.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="p-8 text-center text-gray-500">
+                    No recent orders found.
+                  </td>
+                </tr>
+              ) : (
+                currentOrders.map((order) => (
+                  <tr key={order._id} className="hover:bg-gray-50 dark:hover:bg-gray-900/40">
+                    <td className="p-4 font-mono text-xs font-semibold text-gray-900 dark:text-white">
+                      #{order._id.substring(order._id.length - 8)}
+                    </td>
+                    <td className="p-4 font-medium text-gray-900 dark:text-white">
+                      {order.user?.name || 'Guest User'}
+                    </td>
+                    <td className="p-4 font-semibold text-gray-900 dark:text-white">
+                      ${order.totalAmount}
+                    </td>
+                    <td className="p-4">
+                      <span
+                        className={`capitalize px-2.5 py-1 rounded-full text-xs font-semibold ${getStatusBadge(
+                          order.status
+                        )}`}
+                      >
+                        {order.status}
+                      </span>
+                    </td>
+                    <td className="p-4 text-xs text-gray-500">
+                      {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Reusable Pagination */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={(page) => setCurrentPage(page)}
+          totalItems={recentOrders.length}
+          itemsPerPage={itemsPerPage}
+        />
       </div>
     </div>
   );

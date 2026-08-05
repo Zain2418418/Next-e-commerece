@@ -34,29 +34,58 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   // 🔔 Admin Notification Drawer States
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const [adminNotifications, setAdminNotifications] = useState<NotificationItem[]>([
-    {
-      id: '1',
-      title: 'New Order Received',
-      message: 'Order #1024 has been placed by Zain.',
-      timestamp: '5m ago',
-      read: false,
-    },
-    {
-      id: '2',
-      title: 'Low Stock Alert',
-      message: 'Product "Wireless Keyboard" has less than 5 items left.',
-      timestamp: '45m ago',
-      read: false,
-    },
-    {
-      id: '3',
-      title: 'New User Registered',
-      message: 'A new user registered on E-Store.',
-      timestamp: '2h ago',
-      read: true,
-    },
-  ]);
+  const [adminNotifications, setAdminNotifications] = useState<NotificationItem[]>([]);
+
+  // 🔄 Dynamic Notification Fetching Logic
+  useEffect(() => {
+    const fetchAdminNotifications = async () => {
+      try {
+        const res = await fetch('/api/admin/orders');
+        const data = await res.json();
+
+        if (data.success && data.orders) {
+          const generatedNotifications: NotificationItem[] = [];
+
+          // 1. Pending orders check
+          const pendingOrders = data.orders.filter((o: any) => o.status === 'pending');
+          if (pendingOrders.length > 0) {
+            generatedNotifications.push({
+              id: 'pending-orders-alert',
+              title: 'Pending Orders Alert',
+              message: `You have ${pendingOrders.length} pending orders waiting for review.`,
+              timestamp: 'Just now',
+              read: false,
+              type: 'order',
+            });
+          }
+
+          // 2. Latest Order Activity
+          const latestOrder = data.orders[0];
+          if (latestOrder) {
+            generatedNotifications.push({
+              id: `order-${latestOrder._id}`,
+              title: 'Latest Store Activity',
+              message: `Order #${latestOrder._id.substring(latestOrder._id.length - 6)} placed for $${latestOrder.totalAmount}.`,
+              timestamp: latestOrder.createdAt 
+                ? new Date(latestOrder.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+                : 'Today',
+              read: false,
+              type: 'order',
+            });
+          }
+
+          setAdminNotifications(generatedNotifications);
+        }
+      } catch (err) {
+        console.error('Failed to load dynamic notifications:', err);
+      }
+    };
+
+    fetchAdminNotifications();
+    const interval = setInterval(fetchAdminNotifications, 30000); // Poll every 30s
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const checkUser = () => {
@@ -122,7 +151,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         />
       )}
 
-      {/* 🟢 Responsive Sidebar (Mobile drawer + Desktop fixed) */}
+      {/* 🟢 Responsive Sidebar */}
       <aside className={`
         fixed md:static inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col flex-shrink-0 transition-transform duration-300 ease-in-out
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
@@ -176,7 +205,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Top Header */}
         <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 md:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            {/* 📱 Mobile Menu Toggle Button */}
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className="md:hidden p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
