@@ -20,6 +20,11 @@ import NotificationDrawer, { NotificationItem } from '@/components/NotificationD
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
+  // 🔴 If current route is /admin/login, bypass the Admin Layout (Sidebar & Header)
+  if (pathname === '/admin/login') {
+    return <>{children}</>;
+  }
+
   // 📱 Mobile Sidebar State
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -88,7 +93,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setAdminUser(null);
       setShowDropdown(false);
       window.dispatchEvent(new Event('user-updated'));
-      window.location.href = '/login';
+      window.location.href = '/admin/login';
     }
   };
 
