@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import ConditionalLayout from "@/components/ConditionalLayout";
 import CustomerChatWidget from "@/components/CustomerChatWidget";
+import NotificationPrompt from "@/components/NotificationPrompt";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -21,6 +22,7 @@ export default function RootLayout({
       <body className={`${inter.className} flex flex-col min-h-screen bg-gray-50 text-gray-900 antialiased`}>
         <ConditionalLayout>{children}</ConditionalLayout>
         <CustomerChatWidget/>
+        <NotificationPrompt/>
       </body>
     </html>
   );

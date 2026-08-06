@@ -2,7 +2,8 @@
 
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
-import Hero from '@/components/Hero'; // 👈 1. IMPORT HERO HERE
+import Hero from '@/components/Hero';
+import Newsletter from '@/components/Newsletter'; // 👈 1. IMPORT NEWSLETTER HERE
 import { MOCK_PRODUCTS, CATEGORIES, Product } from '@/lib/mockData';
 
 export default function Home() {
@@ -56,7 +57,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen">
-      {/* 👈 2. NEW HERO SECTION ADDED HERE (REPLACING THE OLD DIV) */}
+      {/* HERO SECTION */}
       <Hero />
 
       {/* Main Container for Products & Filters */}
@@ -245,6 +246,9 @@ export default function Home() {
             )}
           </div>
         </div>
+
+        {/* 📩 NEWSLETTER SECTION ADDED HERE */}
+        <Newsletter />
       </div>
     </div>
   );
