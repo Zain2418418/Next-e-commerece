@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { db } from "@/lib/firebase";
-import { ref, push, onValue, serverTimestamp } from "firebase/database";
+import { ref, push, onValue } from "firebase/database";
 import { MessageCircle, X, Send, User } from "lucide-react";
 
 interface ChatMessage {
@@ -93,16 +93,16 @@ export default function CustomerChatWidget() {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40">
       {/* Floating Toggle Button */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white p-4 rounded-full shadow-2xl transition-all duration-300 hover:scale-105 group"
+          className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white p-3.5 sm:p-4 rounded-full shadow-2xl transition-all duration-300 hover:scale-105 group active:scale-95"
           aria-label="Open Chat"
         >
-          <MessageCircle className="w-6 h-6 animate-bounce" />
-          <span className="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-xs transition-all duration-300 text-sm font-semibold">
+          <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 animate-bounce" />
+          <span className="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-xs transition-all duration-300 text-xs sm:text-sm font-semibold">
             Chat with us
           </span>
         </button>
@@ -110,16 +110,16 @@ export default function CustomerChatWidget() {
 
       {/* Chat Window Drawer */}
       {isOpen && (
-        <div className="w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-100 flex flex-col h-[480px] overflow-hidden transition-all duration-300">
+        <div className="fixed bottom-4 right-4 left-4 sm:left-auto sm:right-6 sm:bottom-6 w-auto sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-100 flex flex-col h-[75vh] max-h-[480px] overflow-hidden transition-all duration-300 z-40">
           {/* Header */}
-          <div className="bg-gradient-to-r from-indigo-600 to-violet-600 p-4 text-white flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center font-bold">
-                <User className="w-5 h-5" />
+          <div className="bg-gradient-to-r from-indigo-600 to-violet-600 p-3.5 sm:p-4 text-white flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/20 flex items-center justify-center font-bold shrink-0">
+                <User className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
-              <div>
-                <h3 className="font-bold text-sm">Live Support</h3>
-                <p className="text-[11px] text-indigo-100 flex items-center gap-1">
+              <div className="min-w-0">
+                <h3 className="font-bold text-xs sm:text-sm truncate">Live Support</h3>
+                <p className="text-[10px] sm:text-[11px] text-indigo-100 flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                   We're online
                 </p>
@@ -127,17 +127,17 @@ export default function CustomerChatWidget() {
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="p-1 hover:bg-white/20 rounded-lg transition-colors"
+              className="p-1 hover:bg-white/20 rounded-lg transition-colors shrink-0"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Messages Body */}
-          <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50/50">
+          <div className="flex-1 p-3 sm:p-4 overflow-y-auto space-y-3 bg-slate-50/50">
             {messages.length === 0 ? (
               <div className="text-center py-10 text-slate-400 text-xs">
-                <MessageCircle className="w-10 h-10 mx-auto mb-2 opacity-30 stroke-1" />
+                <MessageCircle className="w-9 h-9 sm:w-10 sm:h-10 mx-auto mb-2 opacity-30 stroke-1" />
                 <p>Hello! How can we help you today?</p>
               </div>
             ) : (
@@ -149,7 +149,7 @@ export default function CustomerChatWidget() {
                   }`}
                 >
                   <div
-                    className={`max-w-[80%] p-3 rounded-2xl text-xs font-medium leading-relaxed ${
+                    className={`max-w-[85%] sm:max-w-[80%] p-2.5 sm:p-3 rounded-2xl text-xs font-medium leading-relaxed break-words ${
                       msg.sender === "user"
                         ? "bg-indigo-600 text-white rounded-br-none shadow-sm"
                         : "bg-white text-slate-800 border border-slate-100 rounded-bl-none shadow-sm"
@@ -166,7 +166,7 @@ export default function CustomerChatWidget() {
           {/* Input Form */}
           <form
             onSubmit={handleSendMessage}
-            className="p-3 bg-white border-t border-slate-100 flex items-center gap-2"
+            className="p-2.5 sm:p-3 bg-white border-t border-slate-100 flex items-center gap-2 shrink-0"
           >
             <input
               type="text"
@@ -177,7 +177,7 @@ export default function CustomerChatWidget() {
             />
             <button
               type="submit"
-              className="bg-indigo-600 hover:bg-indigo-700 text-white p-2.5 rounded-xl transition-all active:scale-95"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white p-2.5 rounded-xl transition-all active:scale-95 shrink-0"
             >
               <Send className="w-4 h-4" />
             </button>
