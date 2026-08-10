@@ -4,6 +4,7 @@ import "./globals.css";
 import ConditionalLayout from "@/components/ConditionalLayout";
 import CustomerChatWidget from "@/components/CustomerChatWidget";
 import NotificationPrompt from "@/components/NotificationPrompt";
+import AiAssistant from "@/components/AiAssistant"; // 👈 1. IMPORT AI ASSISTANT
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,6 +24,7 @@ export default function RootLayout({
         <ConditionalLayout>{children}</ConditionalLayout>
         <CustomerChatWidget/>
         <NotificationPrompt/>
+        <AiAssistant/> {/* 👈 2. RENDER AI ASSISTANT */}
       </body>
     </html>
   );
