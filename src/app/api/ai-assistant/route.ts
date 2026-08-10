@@ -37,17 +37,12 @@ export async function POST(req: Request) {
     });
 
     // Prepare message history structure for Gemini chat session
-    let formattedHistory = Array.isArray(chatHistory)
+    const formattedHistory = Array.isArray(chatHistory)
       ? chatHistory.map((msg: { sender: string; text: string }) => ({
           role: msg.sender === "user" ? "user" : "model",
           parts: [{ text: msg.text }],
         }))
       : [];
-
-    // FIX: Remove leading 'model' messages (like initial greeting) so history always starts with 'user'
-    while (formattedHistory.length > 0 && formattedHistory[0].role === "model") {
-      formattedHistory.shift();
-    }
 
     // Start chat with clean history
     const chat = model.startChat({
