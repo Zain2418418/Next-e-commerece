@@ -26,11 +26,15 @@ export async function POST(req: Request) {
       );
     }
 
-    // Initialize Gemini API with latest model
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
+    // Get system context/catalog instructions
     const systemContext = getStoreCatalogContext();
+
+    // Initialize Gemini API with latest stable model & proper systemInstruction
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.0-flash", // Updated to official gemini-2.0-flash name
+      systemInstruction: systemContext, // Proper API method for context setup
+    });
 
     // Prepare message history structure for Gemini chat session
     const formattedHistory = Array.isArray(chatHistory)
@@ -40,18 +44,9 @@ export async function POST(req: Request) {
         }))
       : [];
 
+    // Start chat with clean history
     const chat = model.startChat({
-      history: [
-        {
-          role: "user",
-          parts: [{ text: "Initialize store system guidelines." }],
-        },
-        {
-          role: "model",
-          parts: [{ text: `Understood. System context:\n${systemContext}` }],
-        },
-        ...formattedHistory,
-      ],
+      history: formattedHistory,
       generationConfig: {
         maxOutputTokens: 1000,
         temperature: 0.7,
