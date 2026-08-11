@@ -21,13 +21,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // System instruction forcing direct assistant response
+    // System instruction: Direct response only
     const baseContext = getStoreCatalogContext();
     const systemContext = `${baseContext}
 
-CRITICAL INSTRUCTION: You are a direct customer assistant. Never output thoughts, constraints evaluation, scratchpad, or analysis. Always talk directly to the user in clean plain text.`;
+IMPORTANT: Respond directly to the user as an e-commerce assistant. Do NOT output internal scratchpad, thoughts, or evaluation steps.`;
 
-    // Clean and format history
+    // Format chat history
     let formattedHistory = Array.isArray(chatHistory)
       ? chatHistory.map((msg: { sender: string; text: string }) => ({
           role: msg.sender === "user" ? "user" : "model",
@@ -44,7 +44,7 @@ CRITICAL INSTRUCTION: You are a direct customer assistant. Never output thoughts
       { role: "user", parts: [{ text: message }] }
     ];
 
-    // Fetch available model
+    // Fetch dynamic model
     const modelsResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
     );
@@ -77,7 +77,7 @@ CRITICAL INSTRUCTION: You are a direct customer assistant. Never output thoughts
           contents,
           generationConfig: {
             maxOutputTokens: 1000,
-            temperature: 0.2,
+            temperature: 0.5,
           }
         }),
       }
@@ -89,32 +89,11 @@ CRITICAL INSTRUCTION: You are a direct customer assistant. Never output thoughts
       throw new Error(data.error?.message || "Failed to fetch response from Gemini API.");
     }
 
-    let rawText: string = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-    if (!rawText.trim()) {
-      rawText = "I am here to help you with any questions about our products or your orders!";
-    }
-
-    // Clean any leading thinking block dynamically if model outputs quotes/thinking text
-    let cleanReply = rawText;
-    if (cleanReply.includes("*   User") || cleanReply.includes("User wants:") || cleanReply.includes("Constraint")) {
-      // Find the last quotes or final user-facing string block
-      const doubleQuoteMatches = [...cleanReply.matchAll(/"([^"]+)"/g)];
-      if (doubleQuoteMatches.length > 0) {
-        cleanReply = doubleQuoteMatches[doubleQuoteMatches.length - 1][1];
-      } else {
-        // Fallback: take lines that don't start with markdown bullet points of internal reasoning
-        const lines = cleanReply.split("\n");
-        const filtered = lines.filter((l: string) => !l.trim().startsWith("*   ") && !l.trim().startsWith("User"));
-        if (filtered.length > 0) {
-          cleanReply = filtered.join("\n").trim();
-        }
-      }
-    }
+    const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
     return NextResponse.json({
       success: true,
-      reply: cleanReply.trim() || rawText.trim(),
+      reply: responseText || "I couldn't fetch a reply. Please try again.",
     });
 
   } catch (error: any) {
