@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getStoreCatalogContext } from "@/lib/aiKnowledge";
 
 export async function POST(req: Request) {
@@ -8,17 +7,13 @@ export async function POST(req: Request) {
 
     if (!apiKey) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Gemini API key is not configured on the server.",
-        },
+        { success: false, message: "Gemini API key is not configured on the server." },
         { status: 500 }
       );
     }
 
     const { message, chatHistory } = await req.json();
 
-    // Input Validation
     if (!message || typeof message !== "string" || !message.trim()) {
       return NextResponse.json(
         { success: false, message: "A valid prompt string is required." },
@@ -28,15 +23,7 @@ export async function POST(req: Request) {
 
     const systemContext = getStoreCatalogContext();
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-
-    // Switch to gemini-1.5-pro for maximum endpoint compatibility
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-pro",
-      systemInstruction: systemContext,
-    });
-
-    // Format chat history
+    // Clean and format history properly
     let formattedHistory = Array.isArray(chatHistory)
       ? chatHistory.map((msg: { sender: string; text: string }) => ({
           role: msg.sender === "user" ? "user" : "model",
@@ -44,22 +31,42 @@ export async function POST(req: Request) {
         }))
       : [];
 
-    // Ensure history starts with 'user' role
+    // Drop initial bot greetings so history always starts with user
     while (formattedHistory.length > 0 && formattedHistory[0].role === "model") {
       formattedHistory.shift();
     }
 
-    // Start chat session
-    const chat = model.startChat({
-      history: formattedHistory,
-      generationConfig: {
-        maxOutputTokens: 1000,
-        temperature: 0.7,
-      },
-    });
+    const contents = [
+      ...formattedHistory,
+      { role: "user", parts: [{ text: message }] }
+    ];
 
-    const result = await chat.sendMessage(message);
-    const responseText = result.response.text();
+    // Direct fetch call bypassing SDK routing bugs
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: systemContext }]
+          },
+          contents,
+          generationConfig: {
+            maxOutputTokens: 1000,
+            temperature: 0.7,
+          }
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error?.message || "Failed to fetch response from Gemini API.");
+    }
+
+    const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
 
     return NextResponse.json({
       success: true,
@@ -70,7 +77,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         success: false,
-        message: error?.message || "Failed to generate AI response. Please try again.",
+        message: error?.message || "Failed to generate AI response.",
       },
       { status: 500 }
     );
