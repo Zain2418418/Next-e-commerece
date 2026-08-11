@@ -23,7 +23,7 @@ export async function POST(req: Request) {
 
     const systemContext = getStoreCatalogContext();
 
-    // Clean and format history properly
+    // Clean and format history
     let formattedHistory = Array.isArray(chatHistory)
       ? chatHistory.map((msg: { sender: string; text: string }) => ({
           role: msg.sender === "user" ? "user" : "model",
@@ -31,7 +31,6 @@ export async function POST(req: Request) {
         }))
       : [];
 
-    // Drop initial bot greetings so history always starts with user
     while (formattedHistory.length > 0 && formattedHistory[0].role === "model") {
       formattedHistory.shift();
     }
@@ -41,9 +40,28 @@ export async function POST(req: Request) {
       { role: "user", parts: [{ text: message }] }
     ];
 
-    // Direct fetch call bypassing SDK routing bugs
+    // 1. Fetch available models for your specific API key dynamically
+    const modelsResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
+    );
+
+    let modelName = "models/gemini-1.5-flash"; // default fallback
+
+    if (modelsResponse.ok) {
+      const modelsData = await modelsResponse.json();
+      // Find the first model that supports generateContent
+      const validModel = modelsData.models?.find((m: any) =>
+        m.supportedGenerationMethods?.includes("generateContent") &&
+        (m.name.includes("flash") || m.name.includes("pro"))
+      );
+      if (validModel?.name) {
+        modelName = validModel.name;
+      }
+    }
+
+    // 2. Call generateContent with auto-discovered working model
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
