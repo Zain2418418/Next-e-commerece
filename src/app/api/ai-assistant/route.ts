@@ -21,7 +21,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const systemContext = getStoreCatalogContext();
+    // Strict formatting rule appended to context
+    const baseContext = getStoreCatalogContext();
+    const systemContext = `${baseContext}
+
+CRITICAL OUTPUT RULE:
+- Do NOT output your internal thinking, reasoning process, analysis, or scratchpad steps.
+- Do NOT use bullet points analyzing user request or constraints.
+- Output ONLY the final direct, polite response meant for the customer.`;
 
     // Clean and format history
     let formattedHistory = Array.isArray(chatHistory)
@@ -40,7 +47,7 @@ export async function POST(req: Request) {
       { role: "user", parts: [{ text: message }] }
     ];
 
-    // 1. Fetch available models for your API key dynamically
+    // Fetch available models dynamically
     const modelsResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
     );
@@ -49,14 +56,11 @@ export async function POST(req: Request) {
 
     if (modelsResponse.ok) {
       const modelsData = await modelsResponse.json();
-      
-      // Filter out any models mentioning unavailable/deprecated ones
       const availableModels = modelsData.models?.filter((m: any) =>
         m.supportedGenerationMethods?.includes("generateContent") &&
         !m.name.includes("2.5")
       );
 
-      // Pick exact gemini-2.0-flash or first valid model
       const preferred = availableModels?.find((m: any) => m.name.includes("gemini-2.0-flash")) || availableModels?.[0];
       
       if (preferred?.name) {
@@ -64,7 +68,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // 2. Direct API call with the clean target model
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/${targetModel}:generateContent?key=${apiKey}`,
       {
@@ -77,7 +80,7 @@ export async function POST(req: Request) {
           contents,
           generationConfig: {
             maxOutputTokens: 1000,
-            temperature: 0.7,
+            temperature: 0.2,
           }
         }),
       }
@@ -89,7 +92,25 @@ export async function POST(req: Request) {
       throw new Error(data.error?.message || "Failed to fetch response from Gemini API.");
     }
 
-    const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
+    let responseText: string = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
+
+    // Remove internal thinking blocks if present
+    if (responseText.includes("*   User") || responseText.includes("*   Constraint")) {
+      const lines = responseText.split("\n");
+      const cleanLines = lines.filter(
+        (line: string) =>
+          !line.trim().startsWith("*   User") &&
+          !line.trim().startsWith("*   Constraint") &&
+          !line.trim().startsWith("*   Greeting:") &&
+          !line.trim().startsWith("*   Recommendations:") &&
+          !line.trim().startsWith("*   Closing:") &&
+          !line.trim().startsWith("*   Polite/") &&
+          !line.trim().startsWith("*   Strictly") &&
+          !line.trim().startsWith("*   Include") &&
+          !line.trim().startsWith("*   No invented")
+      );
+      responseText = cleanLines.join("\n").trim();
+    }
 
     return NextResponse.json({
       success: true,
