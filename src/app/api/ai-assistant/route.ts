@@ -30,9 +30,9 @@ export async function POST(req: Request) {
 
     const genAI = new GoogleGenerativeAI(apiKey);
 
-    // Explicit model string without suffixes
+    // Switch to gemini-1.5-pro for maximum endpoint compatibility
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: "gemini-1.5-pro",
       systemInstruction: systemContext,
     });
 
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
         }))
       : [];
 
-    // Ensure first message is always 'user'
+    // Ensure history starts with 'user' role
     while (formattedHistory.length > 0 && formattedHistory[0].role === "model") {
       formattedHistory.shift();
     }
