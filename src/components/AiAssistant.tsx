@@ -19,7 +19,7 @@ export default function AiAssistant() {
   const [loading, setLoading] = useState(false);
 
   // 🔒 Auth States
-  const [user, setUser] = useState<User | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [authLoading, setAuthLoading] = useState(true);
 
   const [messages, setMessages] = useState<Message[]>([
@@ -33,42 +33,53 @@ export default function AiAssistant() {
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // 1️⃣ Reliable Firebase Auth Listener with immediate currentUser sync
+  // 🔄 Sync auth state with Firebase AND Local Storage/Session
   useEffect(() => {
-    // Immediate check if user is already loaded in SDK
-    if (auth.currentUser) {
-      setUser(auth.currentUser);
-      setAuthLoading(false);
-    }
+    const checkAuthStatus = () => {
+      // 1. Check direct Firebase Auth
+      if (auth.currentUser) {
+        setIsLoggedIn(true);
+        setAuthLoading(false);
+        return;
+      }
 
+      // 2. Check LocalStorage / Session fallback (which Navbar uses)
+      const storedUser = localStorage.getItem("user") || localStorage.getItem("authUser") || localStorage.getItem("firebaseUser");
+      if (storedUser) {
+        setIsLoggedIn(true);
+      } else {
+        setIsLoggedIn(false);
+      }
+      setAuthLoading(false);
+    };
+
+    checkAuthStatus();
+
+    // Firebase Auth Listener
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+      if (currentUser) {
+        setIsLoggedIn(true);
+      } else {
+        // Fallback check if navbar logged in state exists in storage
+        const storedUser = localStorage.getItem("user") || localStorage.getItem("authUser");
+        setIsLoggedIn(!!storedUser);
+      }
       setAuthLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
-
-  // Re-check auth when chat drawer opens
-  useEffect(() => {
-    if (isOpen) {
-      if (auth.currentUser) {
-        setUser(auth.currentUser);
-      }
-      setAuthLoading(false);
-    }
   }, [isOpen]);
 
-  // 2️⃣ Auto-scroll to latest message
+  // Auto-scroll to latest message
   useEffect(() => {
-    if (isOpen && user) {
+    if (isOpen && isLoggedIn) {
       chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, isOpen, loading, user]);
+  }, [messages, isOpen, loading, isLoggedIn]);
 
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!input.trim() || loading || !user) return;
+    if (!input.trim() || loading || !isLoggedIn) return;
 
     const userMsg: Message = {
       id: Date.now().toString(),
@@ -143,9 +154,8 @@ export default function AiAssistant() {
   };
 
   return (
-    /* 📍 Positioned in Center-Bottom of Screen */
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
-      {/* 🔘 Floating Launcher Button */}
+      {/* 🔘 Launcher Button */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
@@ -165,7 +175,7 @@ export default function AiAssistant() {
         </button>
       )}
 
-      {/* 💬 Chatbot Drawer Box */}
+      {/* 💬 Chat Box Drawer */}
       {isOpen && (
         <div className="w-[92vw] sm:w-[400px] h-[540px] max-h-[80vh] bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 flex flex-col overflow-hidden transition-all duration-300 animate-in fade-in slide-in-from-bottom-5">
           {/* Header */}
@@ -182,7 +192,7 @@ export default function AiAssistant() {
               </div>
             </div>
             <div className="flex items-center gap-1">
-              {user && (
+              {isLoggedIn && (
                 <button
                   onClick={handleResetChat}
                   title="Reset Chat"
@@ -200,14 +210,14 @@ export default function AiAssistant() {
             </div>
           </div>
 
-          {/* 🛑 AUTHENTICATION STATE HANDLING */}
+          {/* 🛑 AUTHENTICATION LOGIC */}
           {authLoading ? (
             <div className="flex-1 flex flex-col items-center justify-center p-6 text-gray-500 text-xs">
               <Loader2 className="w-6 h-6 animate-spin text-indigo-600 mb-2" />
               <span>Verifying account status...</span>
             </div>
-          ) : !user ? (
-            /* 🔒 LOGGED OUT USER STATE */
+          ) : !isLoggedIn ? (
+            /* 🔒 LOGGED OUT SCREEN */
             <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-gray-50/50 dark:bg-gray-950/40">
               <div className="w-14 h-14 bg-indigo-100 dark:bg-indigo-950/80 rounded-2xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-4 shadow-sm">
                 <Lock className="w-7 h-7" />
@@ -227,9 +237,9 @@ export default function AiAssistant() {
               </Link>
             </div>
           ) : (
-            /* ✅ LOGGED IN USER (NORMAL CHAT UI) */
+            /* ✅ LOGGED IN SCREEN (NORMAL CHAT UI) */
             <>
-              {/* Chat Messages Body */}
+              {/* Chat Messages */}
               <div className="flex-1 p-4 overflow-y-auto space-y-3.5 bg-gray-50/50 dark:bg-gray-950/40 text-xs">
                 {messages.map((msg) => (
                   <div
@@ -254,7 +264,7 @@ export default function AiAssistant() {
                   </div>
                 ))}
 
-                {/* Loading typing indicator */}
+                {/* Loading State */}
                 {loading && (
                   <div className="flex gap-2.5 items-center text-gray-400">
                     <div className="w-7 h-7 bg-indigo-100 dark:bg-indigo-950/80 rounded-xl flex items-center justify-center text-indigo-600">
