@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { Bot, X, Send, Sparkles, Loader2, RefreshCw, Lock, LogIn } from "lucide-react";
-import { auth } from "@/lib/firebase"; // Make sure this path matches your firebase setup
+import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import Link from "next/link";
 
@@ -17,7 +17,7 @@ export default function AiAssistant() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  
+
   // 🔒 Auth States
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -33,14 +33,31 @@ export default function AiAssistant() {
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // 1️⃣ Firebase Authentication Listener
+  // 1️⃣ Reliable Firebase Auth Listener with immediate currentUser sync
   useEffect(() => {
+    // Immediate check if user is already loaded in SDK
+    if (auth.currentUser) {
+      setUser(auth.currentUser);
+      setAuthLoading(false);
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setAuthLoading(false);
     });
+
     return () => unsubscribe();
   }, []);
+
+  // Re-check auth when chat drawer opens
+  useEffect(() => {
+    if (isOpen) {
+      if (auth.currentUser) {
+        setUser(auth.currentUser);
+      }
+      setAuthLoading(false);
+    }
+  }, [isOpen]);
 
   // 2️⃣ Auto-scroll to latest message
   useEffect(() => {
@@ -126,12 +143,13 @@ export default function AiAssistant() {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    /* 📍 Positioned in Center-Bottom of Screen */
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
       {/* 🔘 Floating Launcher Button */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="group relative flex items-center gap-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-4 py-3.5 rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95"
+          className="group relative flex items-center gap-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-5 py-3.5 rounded-full shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95"
           aria-label="Open AI Assistant"
         >
           <div className="relative">
@@ -182,9 +200,8 @@ export default function AiAssistant() {
             </div>
           </div>
 
-          {/* 🛑 CONDITIONAL RENDERING BASED ON FIREBASE AUTH */}
+          {/* 🛑 AUTHENTICATION STATE HANDLING */}
           {authLoading ? (
-            /* Loading Auth state */
             <div className="flex-1 flex flex-col items-center justify-center p-6 text-gray-500 text-xs">
               <Loader2 className="w-6 h-6 animate-spin text-indigo-600 mb-2" />
               <span>Verifying account status...</span>
