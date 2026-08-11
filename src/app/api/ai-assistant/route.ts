@@ -21,11 +21,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // System instruction: Direct response only
+    // Explicit system instruction forcing thinking tags separation
     const baseContext = getStoreCatalogContext();
     const systemContext = `${baseContext}
 
-IMPORTANT: Respond directly to the user as an e-commerce assistant. Do NOT output internal scratchpad, thoughts, or evaluation steps.`;
+IMPORTANT: 
+1. If you need to reason or analyze the request, enclose ALL your reasoning inside <thought> and </thought> tags.
+2. Put your final, friendly answer to the user OUTSIDE the <thought> tags.`;
 
     // Format chat history
     let formattedHistory = Array.isArray(chatHistory)
@@ -77,7 +79,7 @@ IMPORTANT: Respond directly to the user as an e-commerce assistant. Do NOT outpu
           contents,
           generationConfig: {
             maxOutputTokens: 1000,
-            temperature: 0.5,
+            temperature: 0.3,
           }
         }),
       }
@@ -89,11 +91,19 @@ IMPORTANT: Respond directly to the user as an e-commerce assistant. Do NOT outpu
       throw new Error(data.error?.message || "Failed to fetch response from Gemini API.");
     }
 
-    const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    let rawResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+    // Strip out the <thought>...</thought> block cleanly
+    let cleanReply = rawResponse.replace(/<thought>[\s\S]*?<\/thought>/gi, "").trim();
+
+    // If the entire output was inside thought tags, fallback to cleaned raw text
+    if (!cleanReply && rawResponse) {
+      cleanReply = rawResponse.replace(/<thought>|<\/thought>/gi, "").trim();
+    }
 
     return NextResponse.json({
       success: true,
-      reply: responseText || "I couldn't fetch a reply. Please try again.",
+      reply: cleanReply || "I couldn't fetch a reply. Please try again.",
     });
 
   } catch (error: any) {
