@@ -29,10 +29,10 @@ export async function POST(req: Request) {
     const systemContext = getStoreCatalogContext();
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    
-    // Using gemini-1.5-flash-latest to ensure stable endpoint mapping
+
+    // Explicit model string without suffixes
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash-latest",
+      model: "gemini-1.5-flash",
       systemInstruction: systemContext,
     });
 
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
         }))
       : [];
 
-    // Ensure history starts with 'user' role (remove initial bot greeting if present)
+    // Ensure first message is always 'user'
     while (formattedHistory.length > 0 && formattedHistory[0].role === "model") {
       formattedHistory.shift();
     }
