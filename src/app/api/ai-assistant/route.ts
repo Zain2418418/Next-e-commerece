@@ -40,28 +40,33 @@ export async function POST(req: Request) {
       { role: "user", parts: [{ text: message }] }
     ];
 
-    // 1. Fetch available models for your specific API key dynamically
+    // 1. Fetch available models for your API key dynamically
     const modelsResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
     );
 
-    let modelName = "models/gemini-1.5-flash"; // default fallback
+    let targetModel = "models/gemini-2.0-flash"; // fallback
 
     if (modelsResponse.ok) {
       const modelsData = await modelsResponse.json();
-      // Find the first model that supports generateContent
-      const validModel = modelsData.models?.find((m: any) =>
+      
+      // Filter out any models mentioning unavailable/deprecated ones
+      const availableModels = modelsData.models?.filter((m: any) =>
         m.supportedGenerationMethods?.includes("generateContent") &&
-        (m.name.includes("flash") || m.name.includes("pro"))
+        !m.name.includes("2.5")
       );
-      if (validModel?.name) {
-        modelName = validModel.name;
+
+      // Pick exact gemini-2.0-flash or first valid model
+      const preferred = availableModels?.find((m: any) => m.name.includes("gemini-2.0-flash")) || availableModels?.[0];
+      
+      if (preferred?.name) {
+        targetModel = preferred.name;
       }
     }
 
-    // 2. Call generateContent with auto-discovered working model
+    // 2. Direct API call with the clean target model
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/${targetModel}:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
