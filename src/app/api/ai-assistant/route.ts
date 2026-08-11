@@ -26,17 +26,17 @@ export async function POST(req: Request) {
       );
     }
 
-    // Get system context/catalog instructions
     const systemContext = getStoreCatalogContext();
 
-    // Initialize Gemini API with latest stable model & proper systemInstruction
     const genAI = new GoogleGenerativeAI(apiKey);
+    
+    // Using gemini-1.5-flash-latest to ensure stable endpoint mapping
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash", // Updated to official gemini-2.0-flash name
-      systemInstruction: systemContext, // Proper API method for context setup
+      model: "gemini-1.5-flash-latest",
+      systemInstruction: systemContext,
     });
 
-    // Prepare message history structure for Gemini chat session
+    // Format chat history
     let formattedHistory = Array.isArray(chatHistory)
       ? chatHistory.map((msg: { sender: string; text: string }) => ({
           role: msg.sender === "user" ? "user" : "model",
@@ -44,12 +44,12 @@ export async function POST(req: Request) {
         }))
       : [];
 
-    // FIX: Ensure history always starts with a 'user' message by dropping initial greeting 'model' messages
+    // Ensure history starts with 'user' role (remove initial bot greeting if present)
     while (formattedHistory.length > 0 && formattedHistory[0].role === "model") {
       formattedHistory.shift();
     }
 
-    // Start chat with clean history
+    // Start chat session
     const chat = model.startChat({
       history: formattedHistory,
       generationConfig: {
