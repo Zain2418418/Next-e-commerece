@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getDatabase } from "firebase/database";
+import { getAuth } from "firebase/auth"; // 👈 Added getAuth
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
@@ -12,9 +13,9 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase safely
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
-// Pass databaseURL explicitly to getDatabase to prevent empty URL build-time fatal crash
-const db = getDatabase(app, process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL);
-
-export { app, db };
+// Export Services
+export const db = getDatabase(app);
+export const auth = getAuth(app); // 👈 Exported auth
+export default app;

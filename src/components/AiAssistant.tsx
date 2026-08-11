@@ -1,7 +1,10 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Bot, X, Send, Sparkles, Loader2, RefreshCw, ShoppingBag } from "lucide-react";
+import { Bot, X, Send, Sparkles, Loader2, RefreshCw, Lock, LogIn } from "lucide-react";
+import { auth } from "@/lib/firebase"; // Make sure this path matches your firebase setup
+import { onAuthStateChanged, User } from "firebase/auth";
+import Link from "next/link";
 
 interface Message {
   id: string;
@@ -14,6 +17,11 @@ export default function AiAssistant() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  
+  // 🔒 Auth States
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -25,16 +33,25 @@ export default function AiAssistant() {
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to latest message
+  // 1️⃣ Firebase Authentication Listener
   useEffect(() => {
-    if (isOpen) {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // 2️⃣ Auto-scroll to latest message
+  useEffect(() => {
+    if (isOpen && user) {
       chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, isOpen, loading]);
+  }, [messages, isOpen, loading, user]);
 
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!input.trim() || loading) return;
+    if (!input.trim() || loading || !user) return;
 
     const userMsg: Message = {
       id: Date.now().toString(),
@@ -49,7 +66,6 @@ export default function AiAssistant() {
     setLoading(true);
 
     try {
-      // Prepare history for API context
       const chatHistory = messages.map((m) => ({
         sender: m.sender,
         text: m.text,
@@ -110,7 +126,7 @@ export default function AiAssistant() {
   };
 
   return (
-    <div className="fixed bottom-6 left-150 z-50">
+    <div className="fixed bottom-6 right-6 z-50">
       {/* 🔘 Floating Launcher Button */}
       {!isOpen && (
         <button
@@ -148,13 +164,15 @@ export default function AiAssistant() {
               </div>
             </div>
             <div className="flex items-center gap-1">
-              <button
-                onClick={handleResetChat}
-                title="Reset Chat"
-                className="p-1.5 hover:bg-white/20 rounded-xl text-white/80 hover:text-white transition-colors"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
+              {user && (
+                <button
+                  onClick={handleResetChat}
+                  title="Reset Chat"
+                  className="p-1.5 hover:bg-white/20 rounded-xl text-white/80 hover:text-white transition-colors"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              )}
               <button
                 onClick={() => setIsOpen(false)}
                 className="p-1.5 hover:bg-white/20 rounded-xl text-white/80 hover:text-white transition-colors"
@@ -164,63 +182,95 @@ export default function AiAssistant() {
             </div>
           </div>
 
-          {/* Chat Messages Body */}
-          <div className="flex-1 p-4 overflow-y-auto space-y-3.5 bg-gray-50/50 dark:bg-gray-950/40 text-xs">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex gap-2.5 ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
+          {/* 🛑 CONDITIONAL RENDERING BASED ON FIREBASE AUTH */}
+          {authLoading ? (
+            /* Loading Auth state */
+            <div className="flex-1 flex flex-col items-center justify-center p-6 text-gray-500 text-xs">
+              <Loader2 className="w-6 h-6 animate-spin text-indigo-600 mb-2" />
+              <span>Verifying account status...</span>
+            </div>
+          ) : !user ? (
+            /* 🔒 LOGGED OUT USER STATE */
+            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-gray-50/50 dark:bg-gray-950/40">
+              <div className="w-14 h-14 bg-indigo-100 dark:bg-indigo-950/80 rounded-2xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-4 shadow-sm">
+                <Lock className="w-7 h-7" />
+              </div>
+              <h4 className="font-bold text-sm text-gray-900 dark:text-white mb-1">
+                Authentication Required
+              </h4>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-6 max-w-[260px] leading-relaxed">
+                Please log in to your account to chat with our AI Shopping Assistant and get personalized recommendations.
+              </p>
+              <Link
+                href="/login"
+                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-5 py-2.5 rounded-xl text-xs transition-all shadow-md hover:shadow-indigo-500/20 active:scale-95"
               >
-                {msg.sender === "ai" && (
-                  <div className="w-7 h-7 bg-indigo-100 dark:bg-indigo-950/80 rounded-xl flex items-center justify-center flex-shrink-0 text-indigo-600 dark:text-indigo-400 mt-1">
-                    <Bot className="w-4 h-4" />
+                <LogIn className="w-4 h-4" />
+                <span>Log In to Continue</span>
+              </Link>
+            </div>
+          ) : (
+            /* ✅ LOGGED IN USER (NORMAL CHAT UI) */
+            <>
+              {/* Chat Messages Body */}
+              <div className="flex-1 p-4 overflow-y-auto space-y-3.5 bg-gray-50/50 dark:bg-gray-950/40 text-xs">
+                {messages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`flex gap-2.5 ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
+                  >
+                    {msg.sender === "ai" && (
+                      <div className="w-7 h-7 bg-indigo-100 dark:bg-indigo-950/80 rounded-xl flex items-center justify-center flex-shrink-0 text-indigo-600 dark:text-indigo-400 mt-1">
+                        <Bot className="w-4 h-4" />
+                      </div>
+                    )}
+
+                    <div
+                      className={`max-w-[80%] p-3.5 rounded-2xl leading-relaxed whitespace-pre-wrap ${
+                        msg.sender === "user"
+                          ? "bg-indigo-600 text-white rounded-br-none shadow-md"
+                          : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 border border-gray-100 dark:border-gray-700/60 rounded-bl-none shadow-sm"
+                      }`}
+                    >
+                      {msg.text}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Loading typing indicator */}
+                {loading && (
+                  <div className="flex gap-2.5 items-center text-gray-400">
+                    <div className="w-7 h-7 bg-indigo-100 dark:bg-indigo-950/80 rounded-xl flex items-center justify-center text-indigo-600">
+                      <Bot className="w-4 h-4" />
+                    </div>
+                    <div className="bg-white dark:bg-gray-800 p-3 rounded-2xl border border-gray-100 dark:border-gray-700/60 flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+                      <span className="text-[11px]">Searching catalog...</span>
+                    </div>
                   </div>
                 )}
+                <div ref={chatEndRef} />
+              </div>
 
-                <div
-                  className={`max-w-[80%] p-3.5 rounded-2xl leading-relaxed whitespace-pre-wrap ${
-                    msg.sender === "user"
-                      ? "bg-indigo-600 text-white rounded-br-none shadow-md"
-                      : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 border border-gray-100 dark:border-gray-700/60 rounded-bl-none shadow-sm"
-                  }`}
+              {/* Input Form */}
+              <form onSubmit={handleSend} className="p-3 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex gap-2">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Ask for recommendations, specs..."
+                  className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white px-4 py-2.5 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-600 placeholder-gray-400"
+                />
+                <button
+                  type="submit"
+                  disabled={loading || !input.trim()}
+                  className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white p-2.5 rounded-xl transition-all flex items-center justify-center flex-shrink-0"
                 >
-                  {msg.text}
-                </div>
-              </div>
-            ))}
-
-            {/* Loading typing indicator */}
-            {loading && (
-              <div className="flex gap-2.5 items-center text-gray-400">
-                <div className="w-7 h-7 bg-indigo-100 dark:bg-indigo-950/80 rounded-xl flex items-center justify-center text-indigo-600">
-                  <Bot className="w-4 h-4" />
-                </div>
-                <div className="bg-white dark:bg-gray-800 p-3 rounded-2xl border border-gray-100 dark:border-gray-700/60 flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
-                  <span className="text-[11px]">Searching catalog...</span>
-                </div>
-              </div>
-            )}
-            <div ref={chatEndRef} />
-          </div>
-
-          {/* Input Form */}
-          <form onSubmit={handleSend} className="p-3 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex gap-2">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask for recommendations, specs..."
-              className="flex-1 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white px-4 py-2.5 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-600 placeholder-gray-400"
-            />
-            <button
-              type="submit"
-              disabled={loading || !input.trim()}
-              className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white p-2.5 rounded-xl transition-all flex items-center justify-center flex-shrink-0"
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </form>
+                  <Send className="w-4 h-4" />
+                </button>
+              </form>
+            </>
+          )}
         </div>
       )}
     </div>
