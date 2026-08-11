@@ -1,5 +1,5 @@
 import { getMessaging, getToken, onMessage, isSupported } from "firebase/messaging";
-import { app } from "./firebase";
+import app  from "./firebase";
 
 export const requestForToken = async (): Promise<string | null> => {
   try {
