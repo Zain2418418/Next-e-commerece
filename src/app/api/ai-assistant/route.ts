@@ -21,14 +21,11 @@ export async function POST(req: Request) {
       );
     }
 
-    // Strict formatting rule appended to context
+    // System instruction forcing direct assistant response
     const baseContext = getStoreCatalogContext();
     const systemContext = `${baseContext}
 
-CRITICAL OUTPUT RULE:
-- Do NOT output your internal thinking, reasoning process, analysis, or scratchpad steps.
-- Do NOT use bullet points analyzing user request or constraints.
-- Output ONLY the final direct, polite response meant for the customer.`;
+CRITICAL INSTRUCTION: You are a direct customer assistant. Never output thoughts, constraints evaluation, scratchpad, or analysis. Always talk directly to the user in clean plain text.`;
 
     // Clean and format history
     let formattedHistory = Array.isArray(chatHistory)
@@ -47,12 +44,12 @@ CRITICAL OUTPUT RULE:
       { role: "user", parts: [{ text: message }] }
     ];
 
-    // Fetch available models dynamically
+    // Fetch available model
     const modelsResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
     );
 
-    let targetModel = "models/gemini-2.0-flash"; // fallback
+    let targetModel = "models/gemini-2.0-flash";
 
     if (modelsResponse.ok) {
       const modelsData = await modelsResponse.json();
@@ -92,30 +89,34 @@ CRITICAL OUTPUT RULE:
       throw new Error(data.error?.message || "Failed to fetch response from Gemini API.");
     }
 
-    let responseText: string = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
+    let rawText: string = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    // Remove internal thinking blocks if present
-    if (responseText.includes("*   User") || responseText.includes("*   Constraint")) {
-      const lines = responseText.split("\n");
-      const cleanLines = lines.filter(
-        (line: string) =>
-          !line.trim().startsWith("*   User") &&
-          !line.trim().startsWith("*   Constraint") &&
-          !line.trim().startsWith("*   Greeting:") &&
-          !line.trim().startsWith("*   Recommendations:") &&
-          !line.trim().startsWith("*   Closing:") &&
-          !line.trim().startsWith("*   Polite/") &&
-          !line.trim().startsWith("*   Strictly") &&
-          !line.trim().startsWith("*   Include") &&
-          !line.trim().startsWith("*   No invented")
-      );
-      responseText = cleanLines.join("\n").trim();
+    if (!rawText.trim()) {
+      rawText = "I am here to help you with any questions about our products or your orders!";
+    }
+
+    // Clean any leading thinking block dynamically if model outputs quotes/thinking text
+    let cleanReply = rawText;
+    if (cleanReply.includes("*   User") || cleanReply.includes("User wants:") || cleanReply.includes("Constraint")) {
+      // Find the last quotes or final user-facing string block
+      const doubleQuoteMatches = [...cleanReply.matchAll(/"([^"]+)"/g)];
+      if (doubleQuoteMatches.length > 0) {
+        cleanReply = doubleQuoteMatches[doubleQuoteMatches.length - 1][1];
+      } else {
+        // Fallback: take lines that don't start with markdown bullet points of internal reasoning
+        const lines = cleanReply.split("\n");
+        const filtered = lines.filter((l: string) => !l.trim().startsWith("*   ") && !l.trim().startsWith("User"));
+        if (filtered.length > 0) {
+          cleanReply = filtered.join("\n").trim();
+        }
+      }
     }
 
     return NextResponse.json({
       success: true,
-      reply: responseText,
+      reply: cleanReply.trim() || rawText.trim(),
     });
+
   } catch (error: any) {
     console.error("Gemini AI API Error:", error);
     return NextResponse.json(
