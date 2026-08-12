@@ -4,83 +4,124 @@ import React, { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Heart } from 'lucide-react';
-import { MOCK_PRODUCTS } from '@/lib/mockData';
 
 interface ProductPageProps {
   params: Promise<{ id: string }>;
 }
 
 export default function ProductDetailPage({ params }: ProductPageProps) {
-  // Promise wrap-up for next.js dynamic parameters
+  // Promise wrap-up for Next.js dynamic parameters
   const resolvedParams = use(params);
-  const product = MOCK_PRODUCTS.find((p) => p.id === resolvedParams.id);
 
-  // Agar product nahi milta to 404 page trigger hoga
-  if (!product) {
-    notFound();
-  }
+  const [product, setProduct] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [hasError, setHasError] = useState<boolean>(false);
 
   const [quantity, setQuantity] = useState(1);
   const [addedToCart, setAddedToCart] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
 
+  // 🔄 Fetch Product live from MongoDB API
+  useEffect(() => {
+    async function fetchProduct() {
+      try {
+        setLoading(true);
+        const res = await fetch(`/api/products/${resolvedParams.id}`);
+        const result = await res.json();
+
+        if (res.ok && result.success && result.data) {
+          setProduct(result.data);
+        } else {
+          setHasError(true);
+        }
+      } catch (err) {
+        console.error("Error fetching product detail:", err);
+        setHasError(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (resolvedParams.id) {
+      fetchProduct();
+    }
+  }, [resolvedParams.id]);
+
   // Check if item is already in Wishlist on load
   useEffect(() => {
+    if (!product) return;
     try {
       const savedWishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
-      const exists = savedWishlist.some((item: any) => item.id === product.id);
+      const productId = product._id || product.id;
+      const exists = savedWishlist.some((item: any) => (item.id || item._id) === productId);
       setIsInWishlist(exists);
     } catch (e) {
       console.error(e);
     }
-  }, [product.id]);
+  }, [product]);
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="w-full bg-white text-slate-900 min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-sm font-semibold text-slate-600">Loading Product Details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle 404/Error if product isn't found
+  if (hasError || !product) {
+    notFound();
+  }
+
+  const categoryName = typeof product.category === 'object' ? product.category?.name : product.category;
+  const productId = product._id || product.id;
 
   // ❤️ Wishlist Toggle Handler
   const handleToggleWishlist = () => {
     try {
       const existingWishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
-      const index = existingWishlist.findIndex((item: any) => item.id === product.id);
+      const index = existingWishlist.findIndex((item: any) => (item.id || item._id) === productId);
 
       let updatedWishlist;
       if (index > -1) {
-        // Remove if already present
-        updatedWishlist = existingWishlist.filter((item: any) => item.id !== product.id);
+        updatedWishlist = existingWishlist.filter((item: any) => (item.id || item._id) !== productId);
         setIsInWishlist(false);
       } else {
-        // Add to Wishlist
         updatedWishlist = [
           ...existingWishlist,
           {
-            id: product.id,
+            id: productId,
             name: product.name,
             price: product.price,
             image: product.image,
-            category: product.category,
+            category: categoryName,
           },
         ];
         setIsInWishlist(true);
       }
 
       localStorage.setItem('wishlist', JSON.stringify(updatedWishlist));
-
-      // Dispatch event to update Navbar counter
       window.dispatchEvent(new Event('wishlist-updated'));
     } catch (error) {
       console.error("Failed to update wishlist:", error);
     }
   };
 
-  // 🛒 LocalStorage & Navbar Event Trigger for Cart Addition
+  // 🛒 Cart Handler
   const handleAddToCart = () => {
     try {
       const existingCart = JSON.parse(localStorage.getItem('cart') || '[]');
-      const itemIndex = existingCart.findIndex((item: any) => item.id === product.id);
+      const itemIndex = existingCart.findIndex((item: any) => (item.id || item._id) === productId);
 
       if (itemIndex > -1) {
         existingCart[itemIndex].quantity += quantity;
       } else {
         existingCart.push({
-          id: product.id,
+          id: productId,
           name: product.name,
           price: product.price,
           image: product.image,
@@ -89,8 +130,6 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
       }
 
       localStorage.setItem('cart', JSON.stringify(existingCart));
-      
-      // Dispatch custom event to notify Navbar immediately
       window.dispatchEvent(new Event('cart-updated'));
       window.dispatchEvent(new Event('storage'));
 
@@ -107,9 +146,9 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
         
         {/* Breadcrumb Navigation */}
         <nav className="flex mb-8 text-sm text-slate-500 space-x-2">
-          <Link href="/" className="hover:text-indigo-600 transition-colors font-medium">Products</Link>
+          <Link href="/shop" className="hover:text-indigo-600 transition-colors font-medium">Products</Link>
           <span>/</span>
-          <span className="text-slate-500 font-medium">{product.category}</span>
+          <span className="text-slate-500 font-medium">{categoryName || 'General'}</span>
           <span>/</span>
           <span className="text-slate-900 font-bold truncate max-w-[200px]">{product.name}</span>
         </nav>
@@ -131,9 +170,11 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
             <div className="space-y-4">
               
               {/* Category Tag */}
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-600 uppercase tracking-wider border border-indigo-100">
-                {product.category}
-              </span>
+              {categoryName && (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-600 uppercase tracking-wider border border-indigo-100">
+                  {categoryName}
+                </span>
+              )}
 
               {/* Product Name */}
               <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight sm:text-4xl">
@@ -143,12 +184,12 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
               {/* Star Rating Section */}
               <div className="flex items-center space-x-3">
                 <div className="flex items-center text-amber-400 text-lg">
-                  {"★".repeat(Math.round(product.rating))}
-                  {"☆".repeat(5 - Math.round(product.rating))}
+                  {"★".repeat(Math.round(product.rating || 5))}
+                  {"☆".repeat(5 - Math.round(product.rating || 5))}
                 </div>
-                <span className="text-sm font-bold text-slate-800">{product.rating} / 5.0</span>
+                <span className="text-sm font-bold text-slate-800">{product.rating || 5.0} / 5.0</span>
                 <span className="text-slate-300">|</span>
-                <span className="text-sm text-slate-500 hover:text-indigo-600 cursor-pointer">{product.reviewsCount} customer reviews</span>
+                <span className="text-sm text-slate-500">{product.reviewsCount || 0} customer reviews</span>
               </div>
 
               {/* Price block */}
@@ -196,7 +237,7 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
                 </div>
               )}
 
-              {/* CTA Buttons (Add to Cart + Wishlist) */}
+              {/* CTA Buttons */}
               <div className="pt-2 flex items-center gap-3">
                 {product.stock > 0 ? (
                   <button
