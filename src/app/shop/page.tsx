@@ -20,7 +20,7 @@ export default function ShopPage() {
           setProducts(Array.isArray(data) ? data : data.products || []);
         }
       } catch (error) {
-        console.error('Error fetching products:', error);
+        console.error('Error fetching shop products:', error);
       } finally {
         setLoading(false);
       }
@@ -29,12 +29,25 @@ export default function ShopPage() {
     fetchShopProducts();
   }, []);
 
+  const getProductImage = (img: any) => {
+    if (!img) return DEFAULT_IMAGE;
+    if (typeof img === 'string') {
+      if (img.startsWith('http://') || img.startsWith('https://') || img.startsWith('/')) {
+        return img;
+      }
+    }
+    if (Array.isArray(img) && img.length > 0 && typeof img[0] === 'string') {
+      return img[0];
+    }
+    return DEFAULT_IMAGE;
+  };
+
   if (loading) {
     return (
       <div className="w-full bg-white text-slate-900 min-h-screen flex items-center justify-center">
         <div className="text-center space-y-3">
           <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-sm font-semibold text-slate-600">Loading Shop Products...</p>
+          <p className="text-sm font-semibold text-slate-600">Loading Shop Catalog...</p>
         </div>
       </div>
     );
@@ -53,8 +66,7 @@ export default function ShopPage() {
           {products.map((product) => {
             const productId = product._id || product.id;
             const categoryName = typeof product.category === 'object' ? product.category?.name : product.category;
-
-            const isValidImageUrl = product.image && typeof product.image === 'string' && product.image.startsWith('http');
+            const imgSrc = getProductImage(product.image);
 
             return (
               <Link 
@@ -63,10 +75,9 @@ export default function ShopPage() {
                 className="group bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between"
               >
                 <div>
-                  {/* Fixed Aspect Image Box */}
                   <div className="w-full h-52 bg-slate-100 relative overflow-hidden flex items-center justify-center">
                     <img
-                      src={isValidImageUrl ? product.image : DEFAULT_IMAGE}
+                      src={imgSrc}
                       alt={product.name || 'Product'}
                       className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
                       onError={(e) => {
