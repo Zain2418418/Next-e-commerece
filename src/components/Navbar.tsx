@@ -12,6 +12,7 @@ import {
   LogOut,
   ChevronDown,
   Bell,
+  UserCheck,
 } from "lucide-react";
 import NotificationDrawer, { NotificationItem } from "./NotificationDrawer";
 
@@ -238,7 +239,7 @@ export default function Navbar() {
 
                   {/* Dropdown Menu */}
                   {showDropdown && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-100 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="absolute right-0 mt-2 w-52 bg-white border border-slate-100 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                       <div className="px-4 py-2 border-b border-slate-100">
                         <p className="text-xs font-bold text-slate-900 truncate">
                           {user.name}
@@ -247,9 +248,19 @@ export default function Navbar() {
                           {user.email}
                         </p>
                       </div>
+
+                      {/* 👤 Profile Link Option Added */}
+                      <Link
+                        href="/profile"
+                        onClick={() => setShowDropdown(false)}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                      >
+                        <UserCheck className="w-4 h-4 text-indigo-600" /> My Profile
+                      </Link>
+
                       <button
                         onClick={handleLogout}
-                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-rose-600 hover:bg-rose-50 text-left transition-colors"
+                        className="w-full flex items-center gap-2 px-4 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 text-left transition-colors border-t border-slate-50"
                       >
                         <LogOut className="w-4 h-4" /> Logout
                       </button>
@@ -311,10 +322,19 @@ export default function Navbar() {
             <div className="pt-2 border-t border-slate-100">
               {user ? (
                 <div className="space-y-2">
-                  <div className="px-4 py-2 bg-slate-50 rounded-xl">
-                    <p className="text-sm font-bold text-slate-900 truncate">{user.name}</p>
-                    <p className="text-xs text-slate-500 truncate">{user.email}</p>
-                  </div>
+                  {/* Clickable Mobile User Card to Profile */}
+                  <Link
+                    href="/profile"
+                    onClick={() => setIsOpen(false)}
+                    className="block px-4 py-2.5 bg-indigo-50/70 hover:bg-indigo-100/80 rounded-xl transition-all"
+                  >
+                    <p className="text-sm font-bold text-indigo-950 truncate flex items-center justify-between">
+                      <span>{user.name}</span>
+                      <span className="text-xs font-semibold text-indigo-600">View Profile →</span>
+                    </p>
+                    <p className="text-xs text-indigo-600/80 truncate">{user.email}</p>
+                  </Link>
+
                   <button
                     onClick={() => {
                       setIsOpen(false);
