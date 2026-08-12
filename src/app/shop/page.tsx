@@ -7,6 +7,8 @@ export default function ShopPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
+  const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80';
+
   useEffect(() => {
     async function fetchShopProducts() {
       try {
@@ -52,6 +54,8 @@ export default function ShopPage() {
             const productId = product._id || product.id;
             const categoryName = typeof product.category === 'object' ? product.category?.name : product.category;
 
+            const isValidImageUrl = product.image && typeof product.image === 'string' && product.image.startsWith('http');
+
             return (
               <Link 
                 key={productId} 
@@ -59,12 +63,15 @@ export default function ShopPage() {
                 className="group bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between"
               >
                 <div>
-                  {/* Fixed Aspect-Ratio Image Container */}
+                  {/* Fixed Aspect Image Box */}
                   <div className="w-full h-52 bg-slate-100 relative overflow-hidden flex items-center justify-center">
                     <img
-                      src={product.image || '/placeholder.png'}
-                      alt={product.name}
+                      src={isValidImageUrl ? product.image : DEFAULT_IMAGE}
+                      alt={product.name || 'Product'}
                       className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = DEFAULT_IMAGE;
+                      }}
                     />
                     {categoryName && (
                       <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-slate-800 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider border border-slate-200 shadow-sm">

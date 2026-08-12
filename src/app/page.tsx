@@ -3,22 +3,23 @@
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import Hero from '@/components/Hero';
-import Newsletter from '@/components/Newsletter'; // 👈 1. IMPORT NEWSLETTER HERE
+import Newsletter from '@/components/Newsletter';
 import { MOCK_PRODUCTS, CATEGORIES, Product } from '@/lib/mockData';
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
-  // 🔄 Multi-category selection array state
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [maxPrice, setMaxPrice] = useState(250);
   const [sortBy, setSortBy] = useState('featured');
+
+  const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80';
 
   // Available categories excluding 'All' for checkbox lists
   const availableCategories = useMemo(() => {
     return CATEGORIES.filter((cat) => cat !== 'All');
   }, []);
 
-  // 🔄 Category toggle handler function
+  // Category toggle handler function
   const handleCategoryToggle = (category: string) => {
     if (category === 'All') {
       setSelectedCategories([]);
@@ -35,14 +36,15 @@ export default function Home() {
   // Filtered and Sorted Products logic
   const filteredProducts = useMemo(() => {
     return MOCK_PRODUCTS.filter((product) => {
+      const categoryName = typeof product.category === 'object' ? (product.category as any)?.name : product.category;
+
       const matchesSearch =
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.description.toLowerCase().includes(searchQuery.toLowerCase());
 
-      // 🔄 Multi-category match check
       const matchesCategory =
         selectedCategories.length === 0 ||
-        selectedCategories.includes(product.category);
+        selectedCategories.includes(categoryName);
 
       const matchesPrice = product.price <= maxPrice;
 
@@ -56,7 +58,7 @@ export default function Home() {
   }, [searchQuery, selectedCategories, maxPrice, sortBy]);
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-slate-50">
       {/* HERO SECTION */}
       <Hero />
 
@@ -77,7 +79,7 @@ export default function Home() {
               )}
             </div>
 
-            {/* 🔄 Multi-Category Checkboxes Section */}
+            {/* Multi-Category Checkboxes Section */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Categories
@@ -199,55 +201,67 @@ export default function Home() {
             ) : (
               /* Products Grid */
               <div className="grid grid-cols-1 gap-y-10 gap-x-6 sm:grid-cols-2 lg:grid-cols-3 xl:gap-x-8">
-                {filteredProducts.map((product) => (
-                  <div key={product.id} className="group relative bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300">
-                    {/* Image wrapper */}
-                    <div className="aspect-w-4 aspect-h-3 bg-gray-100 group-hover:opacity-95 transition-all duration-300 relative h-64">
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="w-full h-full object-cover object-center"
-                      />
-                      <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-black px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase">
-                        {product.category}
-                      </span>
+                {filteredProducts.map((product: any) => {
+                  const productId = product._id || product.id;
+                  const categoryName = typeof product.category === 'object' ? product.category?.name : product.category;
+                  const isValidImageUrl = product.image && typeof product.image === 'string' && product.image.startsWith('http');
+
+                  return (
+                    <div key={productId} className="group relative bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300">
+                      {/* Image wrapper */}
+                      <div className="aspect-w-4 aspect-h-3 bg-gray-100 group-hover:opacity-95 transition-all duration-300 relative h-64 overflow-hidden flex items-center justify-center">
+                        <img
+                          src={isValidImageUrl ? product.image : DEFAULT_IMAGE}
+                          alt={product.name || 'Product'}
+                          className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = DEFAULT_IMAGE;
+                          }}
+                        />
+                        {categoryName && (
+                          <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-black px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase border border-gray-200 shadow-sm">
+                            {categoryName}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Product Details Box */}
+                      <div className="p-5 space-y-2">
+                        <div className="flex justify-between items-start">
+                          <h3 className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                            {/* 🔄 Mongo ID & Static ID Safe Dynamic Route Link */}
+                            <Link href={`/product/${productId}`}>
+                              <span aria-hidden="true" className="absolute inset-0" />
+                              {product.name}
+                            </Link>
+                          </h3>
+                        </div>
+
+                        {/* Rating display */}
+                        <div className="flex items-center space-x-1.5">
+                          <span className="text-yellow-400 text-sm">★</span>
+                          <span className="text-xs font-semibold text-gray-700">{product.rating}</span>
+                          <span className="text-xs text-gray-400">({product.reviewsCount})</span>
+                        </div>
+
+                        <p className="text-xs text-gray-500 line-clamp-2">{product.description}</p>
+
+                        <div className="flex justify-between items-center pt-2">
+                          <span className="text-lg font-black text-gray-900">${product.price}</span>
+                          <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
+                            In Stock ({product.stock})
+                          </span>
+                        </div>
+                      </div>
                     </div>
-
-                    {/* Product Details Box */}
-                    <div className="p-5 space-y-2">
-                      <div className="flex justify-between items-start">
-                        <h3 className="text-sm font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                          <Link href={`/product/${product.id}`}>
-                            <span aria-hidden="true" className="absolute inset-0" />
-                            {product.name}
-                          </Link>
-                        </h3>
-                      </div>
-
-                      {/* Rating display */}
-                      <div className="flex items-center space-x-1.5">
-                        <span className="text-yellow-400 text-sm">★</span>
-                        <span className="text-xs font-semibold text-gray-700">{product.rating}</span>
-                        <span className="text-xs text-gray-400">({product.reviewsCount})</span>
-                      </div>
-
-                      <p className="text-xs text-gray-500 line-clamp-2">{product.description}</p>
-
-                      <div className="flex justify-between items-center pt-2">
-                        <span className="text-lg font-black text-gray-900">${product.price}</span>
-                        <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-                          In Stock ({product.stock})
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
         </div>
 
-        {/* 📩 NEWSLETTER SECTION ADDED HERE */}
+        {/* NEWSLETTER SECTION */}
         <Newsletter />
       </div>
     </div>

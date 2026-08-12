@@ -20,7 +20,8 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
   const [addedToCart, setAddedToCart] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
 
-  // 🔄 Fetch Single Product directly from MongoDB API
+  const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80';
+
   useEffect(() => {
     async function fetchProduct() {
       try {
@@ -28,7 +29,6 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
         const res = await fetch(`/api/products/${resolvedParams.id}`);
         const result = await res.json();
 
-        // API response format fix
         if (res.ok && (result.data || result._id)) {
           setProduct(result.data || result);
         } else {
@@ -47,7 +47,6 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
     }
   }, [resolvedParams.id]);
 
-  // Sync Wishlist status
   useEffect(() => {
     if (!product) return;
     try {
@@ -77,6 +76,7 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
 
   const categoryName = typeof product.category === 'object' ? product.category?.name : product.category;
   const productId = product._id || product.id;
+  const isValidImageUrl = product.image && typeof product.image === 'string' && product.image.startsWith('http');
 
   const handleToggleWishlist = () => {
     try {
@@ -151,15 +151,18 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
           <span className="text-slate-900 font-bold truncate max-w-[200px]">{product.name}</span>
         </nav>
 
-        {/* Main Grid Layout */}
+        {/* Layout */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
           
-          {/* Image */}
-          <div className="bg-slate-50 rounded-3xl overflow-hidden border border-slate-200/80 flex items-center justify-center max-h-[500px] shadow-sm relative group">
+          {/* Product Image */}
+          <div className="bg-slate-50 rounded-3xl overflow-hidden border border-slate-200/80 flex items-center justify-center min-h-[350px] max-h-[500px] shadow-sm relative group">
             <img
-              src={product.image || '/placeholder.png'}
-              alt={product.name}
+              src={isValidImageUrl ? product.image : DEFAULT_IMAGE}
+              alt={product.name || 'Product'}
               className="w-full h-full object-cover object-center transition-transform hover:scale-105 duration-300"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = DEFAULT_IMAGE;
+              }}
             />
           </div>
 
