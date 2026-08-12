@@ -7,7 +7,32 @@ export default function ShopPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80';
+  const getProductImage = (product: any) => {
+    const img = product?.image;
+    const name = product?.name?.toLowerCase() || '';
+
+    if (typeof img === 'string' && img.startsWith('http') && !img.includes('placeholder')) {
+      return img;
+    }
+    if (Array.isArray(img) && img.length > 0 && typeof img[0] === 'string' && img[0].startsWith('http')) {
+      return img[0];
+    }
+
+    if (name.includes('watch') || name.includes('leather')) {
+      return 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&q=80';
+    }
+    if (name.includes('shoe') || name.includes('sneaker') || name.includes('knit') || name.includes('running')) {
+      return 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=80';
+    }
+    if (name.includes('jacket') || name.includes('denim') || name.includes('fashion') || name.includes('cloth')) {
+      return 'https://images.unsplash.com/photo-1576995853123-5a10305d93c0?w=800&q=80';
+    }
+    if (name.includes('headphone') || name.includes('audio') || name.includes('cancelling') || name.includes('wireless')) {
+      return 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80';
+    }
+
+    return 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=800&q=80';
+  };
 
   useEffect(() => {
     async function fetchShopProducts() {
@@ -28,19 +53,6 @@ export default function ShopPage() {
 
     fetchShopProducts();
   }, []);
-
-  const getProductImage = (img: any) => {
-    if (!img) return DEFAULT_IMAGE;
-    if (typeof img === 'string') {
-      if (img.startsWith('http://') || img.startsWith('https://') || img.startsWith('/')) {
-        return img;
-      }
-    }
-    if (Array.isArray(img) && img.length > 0 && typeof img[0] === 'string') {
-      return img[0];
-    }
-    return DEFAULT_IMAGE;
-  };
 
   if (loading) {
     return (
@@ -66,7 +78,7 @@ export default function ShopPage() {
           {products.map((product) => {
             const productId = product._id || product.id;
             const categoryName = typeof product.category === 'object' ? product.category?.name : product.category;
-            const imgSrc = getProductImage(product.image);
+            const imgSrc = getProductImage(product);
 
             return (
               <Link 
@@ -80,9 +92,6 @@ export default function ShopPage() {
                       src={imgSrc}
                       alt={product.name || 'Product'}
                       className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = DEFAULT_IMAGE;
-                      }}
                     />
                     {categoryName && (
                       <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-slate-800 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider border border-slate-200 shadow-sm">

@@ -20,7 +20,32 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
   const [addedToCart, setAddedToCart] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
 
-  const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80';
+  const getProductImage = (prod: any) => {
+    const img = prod?.image;
+    const name = prod?.name?.toLowerCase() || '';
+
+    if (typeof img === 'string' && img.startsWith('http') && !img.includes('placeholder')) {
+      return img;
+    }
+    if (Array.isArray(img) && img.length > 0 && typeof img[0] === 'string' && img[0].startsWith('http')) {
+      return img[0];
+    }
+
+    if (name.includes('watch') || name.includes('leather')) {
+      return 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&q=80';
+    }
+    if (name.includes('shoe') || name.includes('sneaker') || name.includes('knit') || name.includes('running')) {
+      return 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=80';
+    }
+    if (name.includes('jacket') || name.includes('denim') || name.includes('fashion') || name.includes('cloth')) {
+      return 'https://images.unsplash.com/photo-1576995853123-5a10305d93c0?w=800&q=80';
+    }
+    if (name.includes('headphone') || name.includes('audio') || name.includes('cancelling') || name.includes('wireless')) {
+      return 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80';
+    }
+
+    return 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=800&q=80';
+  };
 
   useEffect(() => {
     async function fetchProduct() {
@@ -76,7 +101,7 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
 
   const categoryName = typeof product.category === 'object' ? product.category?.name : product.category;
   const productId = product._id || product.id;
-  const isValidImageUrl = product.image && typeof product.image === 'string' && product.image.startsWith('http');
+  const imgSrc = getProductImage(product);
 
   const handleToggleWishlist = () => {
     try {
@@ -95,7 +120,7 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
             id: productId,
             name: product.name,
             price: product.price,
-            image: product.image,
+            image: imgSrc,
             category: categoryName,
           },
         ];
@@ -122,7 +147,7 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
           id: productId,
           name: product.name,
           price: product.price,
-          image: product.image,
+          image: imgSrc,
           quantity: quantity,
         });
       }
@@ -154,15 +179,12 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
         {/* Layout */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
           
-          {/* Product Image */}
+          {/* Product Image Container */}
           <div className="bg-slate-50 rounded-3xl overflow-hidden border border-slate-200/80 flex items-center justify-center min-h-[350px] max-h-[500px] shadow-sm relative group">
             <img
-              src={isValidImageUrl ? product.image : DEFAULT_IMAGE}
+              src={imgSrc}
               alt={product.name || 'Product'}
               className="w-full h-full object-cover object-center transition-transform hover:scale-105 duration-300"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = DEFAULT_IMAGE;
-              }}
             />
           </div>
 

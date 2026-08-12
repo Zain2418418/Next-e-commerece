@@ -15,9 +15,38 @@ export default function Home() {
   const [maxPrice, setMaxPrice] = useState(500);
   const [sortBy, setSortBy] = useState('featured');
 
-  const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80';
+  // Smart Dynamic Image Extractor
+  const getProductImage = (product: any) => {
+    const img = product?.image;
+    const name = product?.name?.toLowerCase() || '';
 
-  // Fetch Real Products from Database API
+    // 1. Check if DB has valid image string
+    if (typeof img === 'string' && img.startsWith('http') && !img.includes('placeholder')) {
+      return img;
+    }
+    
+    // 2. Check if DB has valid image array with elements
+    if (Array.isArray(img) && img.length > 0 && typeof img[0] === 'string' && img[0].startsWith('http')) {
+      return img[0];
+    }
+
+    // 3. Fallback based on Product Name/Category
+    if (name.includes('watch') || name.includes('leather')) {
+      return 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&q=80';
+    }
+    if (name.includes('shoe') || name.includes('sneaker') || name.includes('knit') || name.includes('running')) {
+      return 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=80';
+    }
+    if (name.includes('jacket') || name.includes('denim') || name.includes('fashion') || name.includes('cloth')) {
+      return 'https://images.unsplash.com/photo-1576995853123-5a10305d93c0?w=800&q=80';
+    }
+    if (name.includes('headphone') || name.includes('audio') || name.includes('cancelling') || name.includes('wireless')) {
+      return 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80';
+    }
+
+    return 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=800&q=80';
+  };
+
   useEffect(() => {
     async function fetchProducts() {
       try {
@@ -75,20 +104,6 @@ export default function Home() {
       return 0;
     });
   }, [products, searchQuery, selectedCategories, maxPrice, sortBy]);
-
-  // Dynamic Image Extractor Function
-  const getProductImage = (img: any) => {
-    if (!img) return DEFAULT_IMAGE;
-    if (typeof img === 'string') {
-      if (img.startsWith('http://') || img.startsWith('https://') || img.startsWith('/')) {
-        return img;
-      }
-    }
-    if (Array.isArray(img) && img.length > 0 && typeof img[0] === 'string') {
-      return img[0];
-    }
-    return DEFAULT_IMAGE;
-  };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -209,7 +224,7 @@ export default function Home() {
                 {filteredProducts.map((product) => {
                   const productId = product._id || product.id;
                   const categoryName = typeof product.category === 'object' ? product.category?.name : product.category;
-                  const imgSrc = getProductImage(product.image);
+                  const imgSrc = getProductImage(product);
 
                   return (
                     <div key={productId} className="group relative bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300">
@@ -218,9 +233,6 @@ export default function Home() {
                           src={imgSrc}
                           alt={product.name || 'Product'}
                           className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = DEFAULT_IMAGE;
-                          }}
                         />
                         {categoryName && (
                           <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-black px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border border-gray-200 shadow-sm">
