@@ -3,128 +3,100 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-interface Product {
-  _id: string;
-  name: string;
-  description: string;
-  price: number;
-  category: any; // Can be populated object or string ID
-  image?: string;
-  stock?: number;
-  rating?: number;
-  reviewsCount?: number;
-}
-
 export default function ShopPage() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-  const fetchShopProducts = async () => {
-    try {
-      setLoading(true);
-      
-      // Local DNS issue bypass karne ke liye environment handle:
-      const res = await fetch('/api/products');
-      
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || `Server responded with status ${res.status}`);
+    async function fetchShopProducts() {
+      try {
+        setLoading(true);
+        const res = await fetch('/api/products');
+        const data = await res.json();
+        
+        if (res.ok) {
+          setProducts(Array.isArray(data) ? data : data.products || []);
+        }
+      } catch (error) {
+        console.error('Error fetching products:', error);
+      } finally {
+        setLoading(false);
       }
-
-      const data = await res.json();
-      setProducts(Array.isArray(data) ? data : []);
-    } catch (err: any) {
-      console.error('Error loading shop products:', err);
-      setError(err.message || 'Failed to load products');
-    } finally {
-      setLoading(false);
     }
-  };
 
-  fetchShopProducts();
-}, []);
+    fetchShopProducts();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="w-full bg-white text-slate-900 min-h-screen flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-sm font-semibold text-slate-600">Loading Shop Products...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 min-h-screen">
-      <div className="border-b border-gray-200 pb-5 mb-8">
-        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
-          All Shop Products
-        </h1>
-        <p className="mt-2 text-sm text-gray-500">
-          Browse through our full catalog synchronized directly from MongoDB.
-        </p>
-      </div>
+    <div className="w-full bg-slate-50 min-h-screen text-slate-900 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div className="mb-8">
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">All Shop Products</h1>
+          <p className="text-slate-500 text-sm mt-1">Browse through our full catalog synchronized directly from MongoDB.</p>
+        </div>
 
-      {loading ? (
-        <div className="text-center py-20 bg-white rounded-2xl border border-gray-100">
-          <p className="text-gray-500 font-medium">Loading products...</p>
-        </div>
-      ) : error ? (
-        <div className="text-center py-20 bg-red-50 rounded-2xl border border-red-100">
-          <p className="text-red-500 font-medium">{error}</p>
-        </div>
-      ) : products.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-2xl border border-gray-100">
-          <p className="text-gray-500 text-lg">No products found in database.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-y-10 gap-x-6 sm:grid-cols-2 lg:grid-cols-4 xl:gap-x-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {products.map((product) => {
-            // Safe category name extraction (handles both string and populated object)
-            const categoryName =
-              typeof product.category === 'object' && product.category !== null
-                ? product.category.name
-                : 'General';
+            const productId = product._id || product.id;
+            const categoryName = typeof product.category === 'object' ? product.category?.name : product.category;
 
             return (
-              <div
-                key={product._id}
-                className="group relative bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between"
+              <Link 
+                key={productId} 
+                href={`/product/${productId}`}
+                className="group bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between"
               >
                 <div>
-                  {/* Image Container */}
-                  <div className="aspect-w-4 aspect-h-3 bg-gray-100 group-hover:opacity-95 transition-all duration-300 relative h-56">
+                  {/* Fixed Aspect-Ratio Image Container */}
+                  <div className="w-full h-52 bg-slate-100 relative overflow-hidden flex items-center justify-center">
                     <img
                       src={product.image || '/placeholder.png'}
                       alt={product.name}
-                      className="w-full h-full object-cover object-center"
+                      className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
                     />
-                    <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-black px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase">
-                      {categoryName}
-                    </span>
+                    {categoryName && (
+                      <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-slate-800 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider border border-slate-200 shadow-sm">
+                        {categoryName}
+                      </span>
+                    )}
                   </div>
 
-                  {/* Details */}
                   <div className="p-5 space-y-2">
-                    <h3 className="text-base font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                      <Link href={`/product/${product._id}`}>
-                        <span aria-hidden="true" className="absolute inset-0" />
-                        {product.name}
-                      </Link>
-                    </h3>
-
-                    <p className="text-xs text-gray-500 line-clamp-2">
+                    <h2 className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">
+                      {product.name}
+                    </h2>
+                    <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
                       {product.description}
                     </p>
                   </div>
                 </div>
 
-                {/* Footer / Price */}
-                <div className="p-5 pt-0 flex justify-between items-center">
-                  <span className="text-lg font-black text-gray-900">
-                    ${product.price}
-                  </span>
-                  <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">
-                    In Stock ({product.stock ?? 10})
+                <div className="px-5 pb-5 pt-2 flex items-center justify-between border-t border-slate-100">
+                  <span className="text-lg font-black text-slate-900">${product.price}</span>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${
+                    (product.stock ?? 1) > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'
+                  }`}>
+                    {(product.stock ?? 1) > 0 ? `In Stock (${product.stock ?? 'Yes'})` : 'Out of Stock'}
                   </span>
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>
-      )}
+
+      </div>
     </div>
   );
 }

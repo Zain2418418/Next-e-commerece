@@ -10,7 +10,6 @@ interface ProductPageProps {
 }
 
 export default function ProductDetailPage({ params }: ProductPageProps) {
-  // Promise wrap-up for Next.js dynamic parameters
   const resolvedParams = use(params);
 
   const [product, setProduct] = useState<any>(null);
@@ -21,7 +20,7 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
   const [addedToCart, setAddedToCart] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
 
-  // 🔄 Fetch Product live from MongoDB API
+  // 🔄 Fetch Single Product directly from MongoDB API
   useEffect(() => {
     async function fetchProduct() {
       try {
@@ -29,8 +28,9 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
         const res = await fetch(`/api/products/${resolvedParams.id}`);
         const result = await res.json();
 
-        if (res.ok && result.success && result.data) {
-          setProduct(result.data);
+        // API response format fix
+        if (res.ok && (result.data || result._id)) {
+          setProduct(result.data || result);
         } else {
           setHasError(true);
         }
@@ -47,20 +47,19 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
     }
   }, [resolvedParams.id]);
 
-  // Check if item is already in Wishlist on load
+  // Sync Wishlist status
   useEffect(() => {
     if (!product) return;
     try {
       const savedWishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
       const productId = product._id || product.id;
-      const exists = savedWishlist.some((item: any) => (item.id || item._id) === productId);
+      const exists = savedWishlist.some((item: any) => (item._id || item.id) === productId);
       setIsInWishlist(exists);
     } catch (e) {
       console.error(e);
     }
   }, [product]);
 
-  // Loading state
   if (loading) {
     return (
       <div className="w-full bg-white text-slate-900 min-h-screen flex items-center justify-center">
@@ -72,7 +71,6 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
     );
   }
 
-  // Handle 404/Error if product isn't found
   if (hasError || !product) {
     notFound();
   }
@@ -80,20 +78,20 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
   const categoryName = typeof product.category === 'object' ? product.category?.name : product.category;
   const productId = product._id || product.id;
 
-  // ❤️ Wishlist Toggle Handler
   const handleToggleWishlist = () => {
     try {
       const existingWishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
-      const index = existingWishlist.findIndex((item: any) => (item.id || item._id) === productId);
+      const index = existingWishlist.findIndex((item: any) => (item._id || item.id) === productId);
 
       let updatedWishlist;
       if (index > -1) {
-        updatedWishlist = existingWishlist.filter((item: any) => (item.id || item._id) !== productId);
+        updatedWishlist = existingWishlist.filter((item: any) => (item._id || item.id) !== productId);
         setIsInWishlist(false);
       } else {
         updatedWishlist = [
           ...existingWishlist,
           {
+            _id: productId,
             id: productId,
             name: product.name,
             price: product.price,
@@ -111,16 +109,16 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
     }
   };
 
-  // 🛒 Cart Handler
   const handleAddToCart = () => {
     try {
       const existingCart = JSON.parse(localStorage.getItem('cart') || '[]');
-      const itemIndex = existingCart.findIndex((item: any) => (item.id || item._id) === productId);
+      const itemIndex = existingCart.findIndex((item: any) => (item._id || item.id) === productId);
 
       if (itemIndex > -1) {
         existingCart[itemIndex].quantity += quantity;
       } else {
         existingCart.push({
+          _id: productId,
           id: productId,
           name: product.name,
           price: product.price,
@@ -146,7 +144,7 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
         
         {/* Breadcrumb Navigation */}
         <nav className="flex mb-8 text-sm text-slate-500 space-x-2">
-          <Link href="/shop" className="hover:text-indigo-600 transition-colors font-medium">Products</Link>
+          <Link href="/shop" className="hover:text-indigo-600 transition-colors font-medium">Shop</Link>
           <span>/</span>
           <span className="text-slate-500 font-medium">{categoryName || 'General'}</span>
           <span>/</span>
@@ -156,32 +154,29 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
         {/* Main Grid Layout */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
           
-          {/* Left Side: Product Image Display */}
+          {/* Image */}
           <div className="bg-slate-50 rounded-3xl overflow-hidden border border-slate-200/80 flex items-center justify-center max-h-[500px] shadow-sm relative group">
             <img
-              src={product.image}
+              src={product.image || '/placeholder.png'}
               alt={product.name}
               className="w-full h-full object-cover object-center transition-transform hover:scale-105 duration-300"
             />
           </div>
 
-          {/* Right Side: Detailed Configuration Info */}
+          {/* Details */}
           <div className="flex flex-col justify-between py-2 space-y-6">
             <div className="space-y-4">
               
-              {/* Category Tag */}
               {categoryName && (
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-600 uppercase tracking-wider border border-indigo-100">
                   {categoryName}
                 </span>
               )}
 
-              {/* Product Name */}
               <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight sm:text-4xl">
                 {product.name}
               </h1>
 
-              {/* Star Rating Section */}
               <div className="flex items-center space-x-3">
                 <div className="flex items-center text-amber-400 text-lg">
                   {"★".repeat(Math.round(product.rating || 5))}
@@ -192,31 +187,25 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
                 <span className="text-sm text-slate-500">{product.reviewsCount || 0} customer reviews</span>
               </div>
 
-              {/* Price block */}
               <div className="border-t border-b border-slate-100 py-4">
                 <span className="text-3xl font-black text-slate-900">${product.price}</span>
               </div>
 
-              {/* Product Description */}
               <div className="space-y-2">
                 <h3 className="text-sm font-bold text-slate-900">Overview</h3>
                 <p className="text-slate-600 text-sm leading-relaxed">{product.description}</p>
               </div>
             </div>
 
-            {/* Checkout & Actions Card */}
             <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200/70 space-y-4 shadow-sm">
-              
-              {/* Stock status */}
               <div className="flex justify-between items-center text-sm">
                 <span className="text-slate-500 font-medium">Status</span>
-                <span className={`font-bold ${product.stock > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
-                  {product.stock > 0 ? `In Stock (${product.stock} available)` : 'Out of Stock'}
+                <span className={`font-bold ${(product.stock ?? 1) > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                  {(product.stock ?? 1) > 0 ? `In Stock (${product.stock ?? 'Available'})` : 'Out of Stock'}
                 </span>
               </div>
 
-              {/* Quantity adjustment */}
-              {product.stock > 0 && (
+              {(product.stock ?? 1) > 0 && (
                 <div className="flex justify-between items-center text-sm border-t border-slate-200/60 pt-4">
                   <span className="text-slate-500 font-medium">Quantity</span>
                   <div className="flex items-center border border-slate-300 rounded-xl overflow-hidden bg-white shadow-sm">
@@ -228,7 +217,7 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
                     </button>
                     <span className="px-4 py-1 text-sm font-bold w-12 text-center text-slate-900 select-none">{quantity}</span>
                     <button
-                      onClick={() => setQuantity((prev) => Math.min(product.stock, prev + 1))}
+                      onClick={() => setQuantity((prev) => Math.min(product.stock || 99, prev + 1))}
                       className="px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 transition font-bold text-slate-700"
                     >
                       +
@@ -237,9 +226,8 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
                 </div>
               )}
 
-              {/* CTA Buttons */}
               <div className="pt-2 flex items-center gap-3">
-                {product.stock > 0 ? (
+                {(product.stock ?? 1) > 0 ? (
                   <button
                     onClick={handleAddToCart}
                     className={`flex-1 flex items-center justify-center px-6 py-3.5 rounded-xl text-sm font-bold text-white shadow-md transition-all duration-300 active:scale-[0.98] ${
@@ -259,7 +247,6 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
                   </button>
                 )}
 
-                {/* ❤️ Wishlist Heart Button */}
                 <button
                   onClick={handleToggleWishlist}
                   aria-label="Add to Wishlist"
