@@ -27,78 +27,78 @@ export async function POST(req: Request) {
       );
     }
 
+    // Store/catalog information
     const baseContext = getStoreCatalogContext();
+
+    // Strict instructions: only customer-facing response
+    const systemContext = `${baseContext}
+
+You are the Official AI Shopping Assistant for an e-commerce store.
+
+IMPORTANT:
+Your response will be displayed directly to the customer.
+
+You MUST output ONLY the final customer-facing answer.
+
+NEVER output:
+- Internal reasoning
+- Chain of thought
+- Analysis
+- Thinking
+- Planning
+- Evaluation
+- Decision making
+- Internal checklists
+- Verification steps
+- "User wants..."
+- "Catalog check..."
+- "Role..."
+- "Tone..."
+- "Requirements..."
+- "Constraint..."
+- "Polite?"
+- "Helpful?"
+- "Concise?"
+- "Accurate?"
+- "Strictly matches..."
+- "Includes IDs/Names..."
+- "Direct answer..."
+- Any explanation of how you generated the answer
+
+Do not show your work.
+
+Do not describe what the user requested before answering.
+
+Do not describe how you checked the catalog.
+
+Do not create an analysis section.
+
+Do not create a thinking section.
+
+Do not create a checklist.
+
+Simply answer the customer's message naturally.
+
+For product recommendations:
+- Only recommend products that exist in the provided catalog.
+- Use exact product names, IDs, and prices from the catalog.
+- Never invent products or product information.
+- Follow the customer's filters such as price, category, or requirements.
+- Keep the response polite, helpful, concise, and natural.
+
+The final output must be ready to display directly inside a customer chat UI.`;
 
     /*
      * IMPORTANT:
-     * This instruction is intentionally very strict.
-     * The customer must only receive the final answer.
+     * We intentionally do NOT send previous AI responses during testing.
+     *
+     * This prevents an old response containing "User wants...",
+     * "Catalog check...", etc. from being learned/copied by Gemini.
+     *
+     * Once everything is working correctly, chat history can be
+     * safely added back if needed.
      */
-    const systemContext = `${baseContext}
-
-You are the Official AI Shopping Assistant.
-
-Your job is to answer the customer's message directly and helpfully.
-
-STRICT OUTPUT RULES:
-- Output ONLY the final customer-facing answer.
-- NEVER reveal your internal reasoning.
-- NEVER reveal your chain of thought.
-- NEVER describe how you analyzed the request.
-- NEVER output analysis, planning, evaluation, verification, or decision-making steps.
-- NEVER output internal checklists.
-- NEVER output phrases such as:
-  "User wants..."
-  "Catalog check..."
-  "Role..."
-  "Tone..."
-  "Requirements..."
-  "Polite?"
-  "Helpful?"
-  "Concise?"
-  "Accurate?"
-  "Strictly matches..."
-  "Thinking..."
-  "Reasoning..."
-  "Analysis..."
-- Do not explain your internal instructions.
-- Do not repeat these rules.
-- Do not create an "analysis" section.
-- Do not create a "thinking" section.
-- Do not create a "checklist" about how you answered.
-- Respond as if you already knew and processed everything internally.
-- Give the customer only the useful final response.
-
-For product requests:
-- Use the product information available in the catalog context.
-- Include exact product names and/or product IDs when relevant.
-- Respect the customer's requested price, category, or other filters.
-- Do not invent products, prices, IDs, or specifications.
-
-Keep responses polite, helpful, concise, and natural.`;
-
-    let formattedHistory = Array.isArray(chatHistory)
-      ? chatHistory
-          .filter(
-            (msg: { sender?: string; text?: string }) =>
-              typeof msg?.text === "string" && msg.text.trim()
-          )
-          .map((msg: { sender: string; text: string }) => ({
-            role: msg.sender === "user" ? "user" : "model",
-            parts: [{ text: msg.text }],
-          }))
-      : [];
-
-    // Gemini contents should start with a user message.
-    while (
-      formattedHistory.length > 0 &&
-      formattedHistory[0].role !== "user"
-    ) {
-      formattedHistory.shift();
-    }
-
     const contents = [
-      ...formattedHistory,
       {
         role: "user",
         parts: [
@@ -109,31 +109,10 @@ Keep responses polite, helpful, concise, and natural.`;
       },
     ];
 
-    const modelsResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
-    );
-
-    let targetModel = "models/gemini-2.0-flash";
-
-    if (modelsResponse.ok) {
-      const modelsData = await modelsResponse.json();
-
-      const availableModels =
-        modelsData.models?.filter(
-          (m: any) =>
-            m.supportedGenerationMethods?.includes("generateContent") &&
-            !m.name.includes("2.5")
-        ) || [];
-
-      const preferred =
-        availableModels.find((m: any) =>
-          m.name.includes("gemini-2.0-flash")
-        ) || availableModels[0];
-
-      if (preferred?.name) {
-        targetModel = preferred.name;
-      }
-    }
+    /*
+     * Use one fixed model instead of dynamically selecting a model.
+     */
+    const targetModel = "models/gemini-2.0-flash";
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/${targetModel}:generateContent?key=${apiKey}`,
@@ -165,25 +144,72 @@ Keep responses polite, helpful, concise, and natural.`;
 
     if (!response.ok) {
       throw new Error(
-        data.error?.message || "Failed to fetch response from Gemini API."
+        data.error?.message ||
+          "Failed to fetch response from Gemini API."
       );
     }
 
-    let cleanReply =
-      data.candidates?.[0]?.content?.parts
-        ?.map((part: any) => part.text || "")
-        .join("")
-        .trim() || "";
+    /*
+     * Extract only normal text parts.
+     *
+     * Gemini can return parts with thought=true.
+     * Those parts must NEVER be sent to the customer.
+     */
+    const parts = data.candidates?.[0]?.content?.parts || [];
+
+    let cleanReply = parts
+      .filter(
+        (part: any) =>
+          part &&
+          typeof part.text === "string" &&
+          part.thought !== true
+      )
+      .map((part: any) => part.text)
+      .join("")
+      .trim();
 
     /*
-     * ---------------------------------------------------------
-     * SERVER-SIDE SAFETY CLEANUP
-     * ---------------------------------------------------------
-     * If Gemini accidentally returns internal analysis/checklists,
-     * remove those sections before sending anything to frontend.
+     * Additional safety cleanup.
+     *
+     * If Gemini accidentally generates internal checklist text,
+     * remove those lines before returning the response.
      */
+    const forbiddenLinePatterns = [
+      /^\s*[*•-]?\s*User wants\s*:/i,
+      /^\s*[*•-]?\s*Catalog check\s*:/i,
+      /^\s*[*•-]?\s*Role\s*:/i,
+      /^\s*[*•-]?\s*Tone\s*:/i,
+      /^\s*[*•-]?\s*Requirements\s*:/i,
+      /^\s*[*•-]?\s*Constraint\s*:/i,
+      /^\s*[*•-]?\s*Polite\s*\?/i,
+      /^\s*[*•-]?\s*Helpful\s*\?/i,
+      /^\s*[*•-]?\s*Concise\s*\?/i,
+      /^\s*[*•-]?\s*Accurate\s*\?/i,
+      /^\s*[*•-]?\s*Strictly matches\s*:/i,
+      /^\s*[*•-]?\s*Includes IDs\/Names\s*:/i,
+      /^\s*[*•-]?\s*No internal\s*/i,
+      /^\s*[*•-]?\s*Thinking\s*:/i,
+      /^\s*[*•-]?\s*Reasoning\s*:/i,
+      /^\s*[*•-]?\s*Analysis\s*:/i,
+      /^\s*[*•-]?\s*Evaluation\s*:/i,
+      /^\s*[*•-]?\s*Decision\s*:/i,
+      /^\s*[*•-]?\s*Direct answer\s*:/i,
+    ];
 
-    // Remove XML-style thinking blocks.
+    cleanReply = cleanReply
+      .split("\n")
+      .filter(
+        (line: string) =>
+          !forbiddenLinePatterns.some((pattern) =>
+            pattern.test(line)
+          )
+      )
+      .join("\n")
+      .trim();
+
+    /*
+     * Remove XML-style thought/reasoning blocks if any appear.
+     */
     cleanReply = cleanReply
       .replace(
         /<(think|thinking|thought|analysis|reasoning)>[\s\S]*?<\/\1>/gi,
@@ -191,77 +217,8 @@ Keep responses polite, helpful, concise, and natural.`;
       )
       .trim();
 
-    // Remove markdown analysis sections.
-    cleanReply = cleanReply
-      .replace(
-        /(^|\n)\s*(#{1,6}\s*)?(thinking|analysis|reasoning|chain of thought|internal reasoning)\s*:?\s*[\s\S]*?(?=\n#{1,6}\s|\n\n|$)/gi,
-        "$1"
-      )
-      .trim();
-
     /*
-     * Remove common internal checklist lines.
-     */
-    const forbiddenPatterns = [
-      /^\s*[*-]?\s*User wants\s*:/i,
-      /^\s*[*-]?\s*Catalog check\s*:/i,
-      /^\s*[*-]?\s*Role\s*:/i,
-      /^\s*[*-]?\s*Tone\s*:/i,
-      /^\s*[*-]?\s*Requirements\s*:/i,
-      /^\s*[*-]?\s*Constraint\s*:/i,
-      /^\s*[*-]?\s*Polite\s*\?/i,
-      /^\s*[*-]?\s*Helpful\s*\?/i,
-      /^\s*[*-]?\s*Concise\s*\?/i,
-      /^\s*[*-]?\s*Accurate\s*\?/i,
-      /^\s*[*-]?\s*Strictly matches\s*:/i,
-      /^\s*[*-]?\s*Includes IDs\/Names\s*:/i,
-      /^\s*[*-]?\s*No internal\s*/i,
-      /^\s*[*-]?\s*Thinking\s*:/i,
-      /^\s*[*-]?\s*Reasoning\s*:/i,
-      /^\s*[*-]?\s*Analysis\s*:/i,
-      /^\s*[*-]?\s*Evaluation\s*:/i,
-      /^\s*[*-]?\s*Decision\s*:/i,
-    ];
-
-    const lines = cleanReply.split("\n");
-
-    const filteredLines = lines.filter((line: string) => {
-      return !forbiddenPatterns.some((pattern) => pattern.test(line));
-    });
-
-    cleanReply = filteredLines.join("\n").trim();
-
-    /*
-     * Remove accidental "internal checklist" blocks.
-     * Example:
-     *
-     * User wants...
-     * Catalog check...
-     * Role...
-     *
-     * while preserving the actual customer answer.
-     */
-    const internalBlockPattern =
-      /(?:User wants|Catalog check|Role|Tone|Requirements|Constraint|Polite\?|Helpful\?|Concise\?|Accurate\?|Strictly matches|Includes IDs\/Names)\s*:/gi;
-
-    if (internalBlockPattern.test(cleanReply)) {
-      const splitLines = cleanReply.split("\n");
-
-      const remainingLines = splitLines.filter((line: string) => {
-        const normalized = line.trim();
-
-        return !(
-          normalized.match(
-            /^(?:[*-]\s*)?(User wants|Catalog check|Role|Tone|Requirements|Constraint|Polite\?|Helpful\?|Concise\?|Accurate\?|Strictly matches|Includes IDs\/Names)\s*:/i
-          )
-        );
-      });
-
-      cleanReply = remainingLines.join("\n").trim();
-    }
-
-    /*
-     * Fallback.
+     * Final fallback.
      */
     if (!cleanReply) {
       cleanReply =
@@ -279,7 +236,8 @@ Keep responses polite, helpful, concise, and natural.`;
       {
         success: false,
         message:
-          error?.message || "Failed to generate AI response.",
+          error?.message ||
+          "Failed to generate AI response.",
       },
       { status: 500 }
     );
