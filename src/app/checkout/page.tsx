@@ -27,8 +27,8 @@ export default function CheckoutPage() {
     billingAddress: '',
     billingCity: '',
     billingPostalCode: '',
-    // Payment Method
-    paymentMethod: 'card', // 'card' (Stripe) or 'cod' (Cash on Delivery)
+    // Payment Method: 'card' (Stripe) or 'cod' (Cash on Delivery)
+    paymentMethod: 'card',
   });
 
   useEffect(() => {
@@ -81,46 +81,10 @@ export default function CheckoutPage() {
       return;
     }
 
-    // Stripe Payment Route
-    if (formData.paymentMethod === 'card') {
-      try {
-        const res = await fetch('/api/checkout/session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            items: cartItems,
-            customerEmail: formData.email,
-            shippingAddress: {
-              address: formData.deliveryAddress,
-              city: formData.deliveryCity,
-              postalCode: formData.deliveryPostalCode,
-            },
-            billingAddress: {
-              address: formData.billingAddress,
-              city: formData.billingCity,
-              postalCode: formData.billingPostalCode,
-            },
-          }),
-        });
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to create payment session');
-
-        if (data.url) {
-          localStorage.removeItem('cart');
-          setCartItems([]);
-          window.dispatchEvent(new Event('cart-updated'));
-          window.dispatchEvent(new Event('storage'));
-          
-          window.location.href = data.url;
-        }
-      } catch (err: any) {
-        setError(err.message || 'Something went wrong during checkout');
-        setLoading(false);
-      }
-    } 
-    // Cash on Delivery (COD) Route
-    else {
+    // ==========================================
+    // 1. CASH ON DELIVERY (COD) FLOW
+    // ==========================================
+    if (formData.paymentMethod === 'cod') {
       try {
         const res = await fetch('/api/checkout/cod', {
           method: 'POST',
@@ -158,6 +122,46 @@ export default function CheckoutPage() {
       } finally {
         setLoading(false);
       }
+      return; // Exit function so Stripe is not called
+    }
+
+    // ==========================================
+    // 2. CREDIT / DEBIT CARD (STRIPE) FLOW
+    // ==========================================
+    try {
+      const res = await fetch('/api/checkout/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: cartItems,
+          customerEmail: formData.email,
+          shippingAddress: {
+            address: formData.deliveryAddress,
+            city: formData.deliveryCity,
+            postalCode: formData.deliveryPostalCode,
+          },
+          billingAddress: {
+            address: formData.billingAddress,
+            city: formData.billingCity,
+            postalCode: formData.billingPostalCode,
+          },
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create payment session');
+
+      if (data.url) {
+        localStorage.removeItem('cart');
+        setCartItems([]);
+        window.dispatchEvent(new Event('cart-updated'));
+        window.dispatchEvent(new Event('storage'));
+        
+        window.location.href = data.url;
+      }
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong during checkout');
+      setLoading(false);
     }
   };
 
@@ -180,13 +184,11 @@ export default function CheckoutPage() {
             </p>
           </div>
 
-          {/* COD Order ID Box */}
           <div className="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-4 text-left">
             <span className="text-[11px] font-bold text-indigo-500 uppercase tracking-wider block">Order ID Reference</span>
             <span className="font-mono text-lg font-black text-indigo-900">{codOrderId}</span>
           </div>
 
-          {/* COD Delivery Summary */}
           <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-left text-xs space-y-2">
             <span className="font-bold text-slate-700 block">Delivery Address:</span>
             <p className="text-slate-600 leading-relaxed">
