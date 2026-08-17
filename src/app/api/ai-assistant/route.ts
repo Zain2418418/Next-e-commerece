@@ -21,13 +21,14 @@ export async function POST(req: Request) {
       );
     }
 
-    // Explicit system instruction forcing thinking tags separation
     const baseContext = getStoreCatalogContext();
     const systemContext = `${baseContext}
 
-IMPORTANT: 
-1. If you need to reason or analyze the request, enclose ALL your reasoning inside <thought> and </thought> tags.
-2. Put your final, friendly answer to the user OUTSIDE the <thought> tags.`;
+STRICT OUTPUT RULES:
+1. Provide ONLY the final helpful answer directly to the user.
+2. DO NOT include internal reasoning, thinking steps, thoughts, or regurgitate/echo the user's input.
+3. DO NOT use <thought> tags or output phrases like "The user is asking...".
+4. Speak directly to the customer as a polite, knowledgeable shopping assistant.`;
 
     // Format chat history
     let formattedHistory = Array.isArray(chatHistory)
@@ -93,10 +94,14 @@ IMPORTANT:
 
     let rawResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    // Strip out the <thought>...</thought> block cleanly
-    let cleanReply = rawResponse.replace(/<thought>[\s\S]*?<\/thought>/gi, "").trim();
+    // Thorough cleaning of reasoning blocks, thoughts, and input echoing
+    let cleanReply = rawResponse
+      .replace(/<thought>[\s\S]*?<\/thought>/gi, "")
+      .replace(/^thought:\s*/gi, "")
+      .replace(/<thought>|<\/thought>/gi, "")
+      .trim();
 
-    // If the entire output was inside thought tags, fallback to cleaned raw text
+    // Fallback cleanup if text was entirely wrapped in reasoning blocks
     if (!cleanReply && rawResponse) {
       cleanReply = rawResponse.replace(/<thought>|<\/thought>/gi, "").trim();
     }
