@@ -3,26 +3,35 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, CheckCircle2, ShieldCheck, CreditCard, Truck, Loader2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ShieldCheck, CreditCard, Truck, Loader2, MapPin, Building } from 'lucide-react';
 
 export default function CheckoutPage() {
   const router = useRouter();
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [createdOrder, setCreatedOrder] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const [sameAsDelivery, setSameAsDelivery] = useState(true);
 
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
     phone: '',
-    address: '',
-    city: '',
-    paymentMethod: 'card', // Default set to 'card' (Stripe)
+    // Delivery Address
+    deliveryAddress: '',
+    deliveryCity: '',
+    deliveryPostalCode: '',
+    // Billing Address
+    billingAddress: '',
+    billingCity: '',
+    billingPostalCode: '',
+    // Payment Method
+    paymentMethod: 'card', // 'card' (Stripe) or 'cod' (Cash on Delivery)
   });
 
   useEffect(() => {
-    // Auth Check
     const savedUser = localStorage.getItem('user');
 
     if (!savedUser) {
@@ -30,7 +39,6 @@ export default function CheckoutPage() {
       return;
     }
 
-    // Auto-fill user details if available
     try {
       const parsedUser = JSON.parse(savedUser);
       if (parsedUser) {
@@ -41,13 +49,24 @@ export default function CheckoutPage() {
         }));
       }
     } catch (e) {
-      // ignore parse error
+      // ignore
     }
 
-    // Load Cart Items
     const savedCart = JSON.parse(localStorage.getItem('cart') || '[]');
     setCartItems(savedCart);
   }, [router]);
+
+  // Sync Billing address with Delivery address when checkbox is toggled
+  useEffect(() => {
+    if (sameAsDelivery) {
+      setFormData((prev) => ({
+        ...prev,
+        billingAddress: prev.deliveryAddress,
+        billingCity: prev.deliveryCity,
+        billingPostalCode: prev.deliveryPostalCode,
+      }));
+    }
+  }, [sameAsDelivery, formData.deliveryAddress, formData.deliveryCity, formData.deliveryPostalCode]);
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
@@ -71,16 +90,23 @@ export default function CheckoutPage() {
           body: JSON.stringify({
             items: cartItems,
             customerEmail: formData.email,
+            shippingAddress: {
+              address: formData.deliveryAddress,
+              city: formData.deliveryCity,
+              postalCode: formData.deliveryPostalCode,
+            },
+            billingAddress: {
+              address: formData.billingAddress,
+              city: formData.billingCity,
+              postalCode: formData.billingPostalCode,
+            },
           }),
         });
 
         const data = await res.json();
-
         if (!res.ok) throw new Error(data.error || 'Failed to create payment session');
 
-        // Stripe Hosted Checkout Page Redirect
         if (data.url) {
-          // Clear cart before redirecting to Stripe
           localStorage.removeItem('cart');
           setCartItems([]);
           window.dispatchEvent(new Event('cart-updated'));
@@ -95,30 +121,94 @@ export default function CheckoutPage() {
     } 
     // Cash on Delivery (COD) Route
     else {
-      setIsSubmitted(true);
-      localStorage.removeItem('cart');
-      setCartItems([]); // Clear local state
-      window.dispatchEvent(new Event('cart-updated'));
-      window.dispatchEvent(new Event('storage'));
-      setLoading(false);
+      try {
+        const res = await fetch('/api/checkout/cod', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: cartItems,
+            customerName: formData.fullName,
+            customerEmail: formData.email,
+            phone: formData.phone,
+            shippingAddress: {
+              address: formData.deliveryAddress,
+              city: formData.deliveryCity,
+              postalCode: formData.deliveryPostalCode,
+            },
+            billingAddress: {
+              address: formData.billingAddress,
+              city: formData.billingCity,
+              postalCode: formData.billingPostalCode,
+            },
+            totalAmount: subtotal,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to place COD order');
+
+        setCreatedOrder(data.order);
+        setIsSubmitted(true);
+        localStorage.removeItem('cart');
+        setCartItems([]);
+        window.dispatchEvent(new Event('cart-updated'));
+        window.dispatchEvent(new Event('storage'));
+      } catch (err: any) {
+        setError(err.message || 'Failed to place cash on delivery order');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
   if (isSubmitted) {
+    const codOrderId = createdOrder?._id 
+      ? `#ORD-${createdOrder._id.toString().slice(-6).toUpperCase()}`
+      : 'COD-CONFIRMED';
+
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-slate-50 border border-slate-200 p-8 rounded-3xl text-center space-y-4">
-          <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto" />
-          <h2 className="text-2xl font-black text-slate-900">Order Placed Successfully!</h2>
-          <p className="text-sm text-slate-600">
-            Thank you for shopping with us. Your cash on delivery order has been received.
-          </p>
-          <Link
-            href="/"
-            className="inline-block w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition"
-          >
-            Back to Home
-          </Link>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 text-slate-900">
+        <div className="max-w-md w-full bg-white border border-slate-200/80 p-8 rounded-3xl shadow-sm text-center space-y-6">
+          <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-emerald-600">
+            <CheckCircle2 className="w-10 h-10" />
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black text-slate-900">Order Placed Successfully!</h2>
+            <p className="text-sm text-slate-500">
+              Thank you for shopping with us. Your Cash on Delivery order has been confirmed.
+            </p>
+          </div>
+
+          {/* COD Order ID Box */}
+          <div className="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-4 text-left">
+            <span className="text-[11px] font-bold text-indigo-500 uppercase tracking-wider block">Order ID Reference</span>
+            <span className="font-mono text-lg font-black text-indigo-900">{codOrderId}</span>
+          </div>
+
+          {/* COD Delivery Summary */}
+          <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-left text-xs space-y-2">
+            <span className="font-bold text-slate-700 block">Delivery Address:</span>
+            <p className="text-slate-600 leading-relaxed">
+              {formData.fullName} ({formData.phone})<br />
+              {formData.deliveryAddress}, {formData.deliveryCity} {formData.deliveryPostalCode}
+            </p>
+          </div>
+
+          <div className="pt-2 space-y-2.5">
+            <Link
+              href="/orders"
+              className="inline-block w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition text-sm"
+            >
+              View My Orders
+            </Link>
+            <Link
+              href="/"
+              className="inline-block w-full py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition text-sm"
+            >
+              Back to Home
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -143,14 +233,16 @@ export default function CheckoutPage() {
         )}
 
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Shipping Form */}
+          
           <div className="lg:col-span-2 space-y-6">
+            
+            {/* Contact Details */}
             <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200/80 space-y-4">
-              <h2 className="text-lg font-bold text-slate-900">Shipping Details</h2>
+              <h2 className="text-lg font-bold text-slate-900">Contact Information</h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Full Name</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Full Name *</label>
                   <input
                     type="text"
                     required
@@ -160,10 +252,11 @@ export default function CheckoutPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Phone Number</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Phone Number *</label>
                   <input
                     type="tel"
                     required
+                    placeholder="+92 300 1234567"
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
@@ -172,7 +265,7 @@ export default function CheckoutPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Email Address *</label>
                 <input
                   type="email"
                   required
@@ -181,20 +274,108 @@ export default function CheckoutPage() {
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 />
               </div>
+            </div>
+
+            {/* Delivery Address Form */}
+            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200/80 space-y-4">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-indigo-600" />
+                <h2 className="text-lg font-bold text-slate-900">Delivery Address</h2>
+              </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Delivery Address</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Street Address *</label>
                 <textarea
                   required
-                  rows={3}
+                  rows={2}
+                  placeholder="House / Flat No, Street, Locality"
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  value={formData.deliveryAddress}
+                  onChange={(e) => setFormData({ ...formData, deliveryAddress: e.target.value })}
                 />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">City *</label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    value={formData.deliveryCity}
+                    onChange={(e) => setFormData({ ...formData, deliveryCity: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Postal Code</label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    value={formData.deliveryPostalCode}
+                    onChange={(e) => setFormData({ ...formData, deliveryPostalCode: e.target.value })}
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Payment Options */}
+            {/* Billing Address Form */}
+            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200/80 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Building className="w-5 h-5 text-indigo-600" />
+                  <h2 className="text-lg font-bold text-slate-900">Billing Address</h2>
+                </div>
+                
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={sameAsDelivery}
+                    onChange={(e) => setSameAsDelivery(e.target.checked)}
+                    className="rounded text-indigo-600 focus:ring-indigo-500"
+                  />
+                  Same as delivery address
+                </label>
+              </div>
+
+              {!sameAsDelivery && (
+                <div className="space-y-4 pt-2">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Billing Street Address *</label>
+                    <textarea
+                      required={!sameAsDelivery}
+                      rows={2}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      value={formData.billingAddress}
+                      onChange={(e) => setFormData({ ...formData, billingAddress: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Billing City *</label>
+                      <input
+                        type="text"
+                        required={!sameAsDelivery}
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                        value={formData.billingCity}
+                        onChange={(e) => setFormData({ ...formData, billingCity: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Billing Postal Code</label>
+                      <input
+                        type="text"
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                        value={formData.billingPostalCode}
+                        onChange={(e) => setFormData({ ...formData, billingPostalCode: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Payment Method Selector */}
             <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200/80 space-y-3">
               <h2 className="text-lg font-bold text-slate-900">Payment Method</h2>
               
@@ -208,7 +389,10 @@ export default function CheckoutPage() {
                   className="text-indigo-600 focus:ring-indigo-500"
                 />
                 <CreditCard className="w-5 h-5 text-indigo-600" />
-                <span className="text-sm font-bold text-slate-800">Credit / Debit Card (Stripe)</span>
+                <div>
+                  <span className="text-sm font-bold text-slate-800 block">Credit / Debit Card (Stripe)</span>
+                  <span className="text-xs text-slate-500">Pay securely via Stripe gateway</span>
+                </div>
               </label>
 
               <label className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition ${formData.paymentMethod === 'cod' ? 'bg-white border-indigo-600 shadow-sm' : 'bg-white/50 border-slate-200'}`}>
@@ -221,13 +405,17 @@ export default function CheckoutPage() {
                   className="text-indigo-600 focus:ring-indigo-500"
                 />
                 <Truck className="w-5 h-5 text-slate-600" />
-                <span className="text-sm font-bold text-slate-800">Cash on Delivery (COD)</span>
+                <div>
+                  <span className="text-sm font-bold text-slate-800 block">Cash on Delivery (COD)</span>
+                  <span className="text-xs text-slate-500">Pay in cash when your order is delivered</span>
+                </div>
               </label>
             </div>
+
           </div>
 
-          {/* Order Summary */}
-          <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200/80 h-fit space-y-4">
+          {/* Order Summary Column */}
+          <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200/80 h-fit space-y-4 lg:sticky lg:top-6">
             <h2 className="text-lg font-bold text-slate-900">Order Summary</h2>
 
             <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
@@ -273,6 +461,7 @@ export default function CheckoutPage() {
               )}
             </button>
           </div>
+
         </form>
       </div>
     </div>
