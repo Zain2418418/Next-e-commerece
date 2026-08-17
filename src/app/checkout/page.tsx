@@ -44,8 +44,8 @@ export default function CheckoutPage() {
       if (parsedUser) {
         setFormData((prev) => ({
           ...prev,
-          fullName: parsedUser.name || prev.fullName,
-          email: parsedUser.email || prev.email,
+          fullName: parsedUser.name || prev.fullName || '',
+          email: parsedUser.email || prev.email || '',
         }));
       }
     } catch (e) {
@@ -68,18 +68,38 @@ export default function CheckoutPage() {
     }
   }, [sameAsDelivery, formData.deliveryAddress, formData.deliveryCity, formData.deliveryPostalCode]);
 
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subtotal = cartItems.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
+
+  const validateForm = () => {
+    if (!formData.fullName.trim()) return 'Please enter your Full Name.';
+    if (!formData.phone.trim()) return 'Please enter your Phone Number.';
+    if (!formData.email.trim()) return 'Please enter your Email Address.';
+    if (!formData.deliveryAddress.trim()) return 'Please enter Delivery Street Address.';
+    if (!formData.deliveryCity.trim()) return 'Please enter Delivery City.';
+    if (!sameAsDelivery) {
+      if (!formData.billingAddress.trim()) return 'Please enter Billing Street Address.';
+      if (!formData.billingCity.trim()) return 'Please enter Billing City.';
+    }
+    return null;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
 
     if (cartItems.length === 0) {
       setError('Your cart is empty!');
-      setLoading(false);
       return;
     }
+
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    setLoading(true);
 
     // ==========================================
     // 1. CASH ON DELIVERY (COD) FLOW
@@ -100,9 +120,9 @@ export default function CheckoutPage() {
               postalCode: formData.deliveryPostalCode,
             },
             billingAddress: {
-              address: formData.billingAddress,
-              city: formData.billingCity,
-              postalCode: formData.billingPostalCode,
+              address: sameAsDelivery ? formData.deliveryAddress : formData.billingAddress,
+              city: sameAsDelivery ? formData.deliveryCity : formData.billingCity,
+              postalCode: sameAsDelivery ? formData.deliveryPostalCode : formData.billingPostalCode,
             },
             totalAmount: subtotal,
           }),
@@ -122,7 +142,7 @@ export default function CheckoutPage() {
       } finally {
         setLoading(false);
       }
-      return; // Exit function so Stripe is not called
+      return;
     }
 
     // ==========================================
@@ -141,9 +161,9 @@ export default function CheckoutPage() {
             postalCode: formData.deliveryPostalCode,
           },
           billingAddress: {
-            address: formData.billingAddress,
-            city: formData.billingCity,
-            postalCode: formData.billingPostalCode,
+            address: sameAsDelivery ? formData.deliveryAddress : formData.billingAddress,
+            city: sameAsDelivery ? formData.deliveryCity : formData.billingCity,
+            postalCode: sameAsDelivery ? formData.deliveryPostalCode : formData.billingPostalCode,
           },
         }),
       });
@@ -206,7 +226,7 @@ export default function CheckoutPage() {
             </Link>
             <Link
               href="/"
-              className="inline-block w-full py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition text-sm"
+              className="inline-block w-full py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition text-sm text-center"
             >
               Back to Home
             </Link>
@@ -229,8 +249,9 @@ export default function CheckoutPage() {
         <h1 className="text-3xl font-extrabold tracking-tight mb-8">Checkout</h1>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-sm font-medium">
-            {error}
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-sm font-semibold flex items-center justify-between">
+            <span>⚠️ {error}</span>
+            <button onClick={() => setError('')} className="text-xs underline text-red-500">Dismiss</button>
           </div>
         )}
 
@@ -247,7 +268,6 @@ export default function CheckoutPage() {
                   <label className="block text-xs font-bold text-slate-700 mb-1">Full Name *</label>
                   <input
                     type="text"
-                    required
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     value={formData.fullName}
                     onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
@@ -257,7 +277,6 @@ export default function CheckoutPage() {
                   <label className="block text-xs font-bold text-slate-700 mb-1">Phone Number *</label>
                   <input
                     type="tel"
-                    required
                     placeholder="+92 300 1234567"
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     value={formData.phone}
@@ -270,7 +289,6 @@ export default function CheckoutPage() {
                 <label className="block text-xs font-bold text-slate-700 mb-1">Email Address *</label>
                 <input
                   type="email"
-                  required
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -288,7 +306,6 @@ export default function CheckoutPage() {
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Street Address *</label>
                 <textarea
-                  required
                   rows={2}
                   placeholder="House / Flat No, Street, Locality"
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
@@ -302,7 +319,6 @@ export default function CheckoutPage() {
                   <label className="block text-xs font-bold text-slate-700 mb-1">City *</label>
                   <input
                     type="text"
-                    required
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     value={formData.deliveryCity}
                     onChange={(e) => setFormData({ ...formData, deliveryCity: e.target.value })}
@@ -344,7 +360,6 @@ export default function CheckoutPage() {
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">Billing Street Address *</label>
                     <textarea
-                      required={!sameAsDelivery}
                       rows={2}
                       className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                       value={formData.billingAddress}
@@ -357,7 +372,6 @@ export default function CheckoutPage() {
                       <label className="block text-xs font-bold text-slate-700 mb-1">Billing City *</label>
                       <input
                         type="text"
-                        required={!sameAsDelivery}
                         className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                         value={formData.billingCity}
                         onChange={(e) => setFormData({ ...formData, billingCity: e.target.value })}
@@ -426,7 +440,7 @@ export default function CheckoutPage() {
                   <span className="font-medium text-slate-700 truncate max-w-[180px]">
                     {item.name} (x{item.quantity})
                   </span>
-                  <span className="font-bold text-slate-900">${(item.price * item.quantity).toFixed(2)}</span>
+                  <span className="font-bold text-slate-900">${((item.price || 0) * (item.quantity || 1)).toFixed(2)}</span>
                 </div>
               ))}
             </div>
@@ -449,7 +463,7 @@ export default function CheckoutPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:bg-indigo-400 transition shadow-md shadow-indigo-100 flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:bg-indigo-400 transition shadow-md shadow-indigo-100 flex items-center justify-center gap-2 cursor-pointer"
             >
               {loading ? (
                 <>
