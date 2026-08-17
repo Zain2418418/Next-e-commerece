@@ -24,11 +24,9 @@ export async function POST(req: Request) {
     const baseContext = getStoreCatalogContext();
     const systemContext = `${baseContext}
 
-CRITICAL OUTPUT RULE:
 You are an AI Shopping Assistant directly chatting with a customer.
-Output ONLY the final conversational message intended for the customer.
-DO NOT output any bullet points analyzing user requests, catalog checks, verification steps, or checklists like "Polite? Yes".
-NEVER show internal thinking.`;
+Provide ONLY your helpful response to the customer. 
+Do NOT show any internal reasoning, thoughts, or evaluation checklists.`;
 
     let formattedHistory = Array.isArray(chatHistory)
       ? chatHistory.map((msg: { sender: string; text: string }) => ({
@@ -78,7 +76,7 @@ NEVER show internal thinking.`;
           contents,
           generationConfig: {
             maxOutputTokens: 1000,
-            temperature: 0.1,
+            temperature: 0.3,
           }
         }),
       }
@@ -92,46 +90,43 @@ NEVER show internal thinking.`;
 
     const rawResponse: string = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    // 🎯 Foolproof extraction logic for thought removal:
+    // 🎯 FIX: Clean response extraction without echoing user query
     let cleanReply = rawResponse;
 
-    // 1. Agar quotes ("...") ke andar real response mojud hai to usy nikal lein
-    const doubleQuoteMatch = cleanReply.match(/"([^"]{15,})"/);
-    if (doubleQuoteMatch && doubleQuoteMatch[1]) {
-      cleanReply = doubleQuoteMatch[1];
-    } else {
-      // 2. Aksar AI thinking ke baad aakhir mein real response deta hai, isliye lines filter kar lein
-      const lines = cleanReply.split("\n");
-      const validLines = lines.filter((line) => {
-        const t = line.trim();
-        if (!t) return false;
-        if (t.startsWith("*") || t.startsWith("-")) {
-          if (
-            t.includes("User wants:") ||
-            t.includes("Catalog check:") ||
-            t.includes("Role:") ||
-            t.includes("Tone:") ||
-            t.includes("Constraint:") ||
-            t.includes("Polite?") ||
-            t.includes("Helpful?") ||
-            t.includes("Concise?") ||
-            t.includes("Accurate?") ||
-            t.includes("Matches requirements?") ||
-            t.includes("Includes IDs") ||
-            t.includes("No internal")
-          ) {
-            return false;
-          }
-        }
-        return true;
-      });
+    // 1. Agar XML thought tags hain to unhe remove karein
+    cleanReply = cleanReply.replace(/<thought>[\s\S]*?<\/thought>/gi, "").trim();
 
-      cleanReply = validLines.join("\n").trim();
+    // 2. Clear out bullet-point reasoning blocks line by line
+    const lines = cleanReply.split("\n");
+    const filteredLines = lines.filter((line) => {
+      const t = line.trim();
+      if (!t) return true; // Keep spacing
+      return (
+        !t.startsWith("* User wants:") &&
+        !t.startsWith("* Catalog check:") &&
+        !t.startsWith("* Role:") &&
+        !t.startsWith("* Tone:") &&
+        !t.startsWith("* Constraint:") &&
+        !t.startsWith("* Polite") &&
+        !t.startsWith("* Helpful") &&
+        !t.startsWith("* Concise") &&
+        !t.startsWith("* Accurate") &&
+        !t.startsWith("* Matches") &&
+        !t.startsWith("* Includes") &&
+        !t.startsWith("* No internal")
+      );
+    });
+
+    cleanReply = filteredLines.join("\n").trim();
+
+    // 3. Fallback agar clean reply empty ho jaye
+    if (!cleanReply && rawResponse) {
+      cleanReply = rawResponse.trim();
     }
 
     return NextResponse.json({
       success: true,
-      reply: cleanReply || rawResponse,
+      reply: cleanReply,
     });
 
   } catch (error: any) {
