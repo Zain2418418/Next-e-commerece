@@ -24,12 +24,11 @@ export async function POST(req: Request) {
     const baseContext = getStoreCatalogContext();
     const systemContext = `${baseContext}
 
-CRITICAL SYSTEM DIRECTIVE:
-- You are a direct text assistant. DO NOT show any thinking, catalog checks, step-by-step verification, bullet points of internal reasoning, or thought processes.
-- Respond ONLY with the final message intended for the customer.
-- Never output "User wants:", "Catalog check:", "Role:", "Constraint:", or validation checklists.`;
+STRICT INSTRUCTIONS:
+- You are an AI Shopping Assistant speaking directly to the user.
+- Provide ONLY your final helpful answer.
+- NEVER output internal thoughts, reasoning steps, or catalog evaluation lists.`;
 
-    // Format chat history
     let formattedHistory = Array.isArray(chatHistory)
       ? chatHistory.map((msg: { sender: string; text: string }) => ({
           role: msg.sender === "user" ? "user" : "model",
@@ -46,7 +45,6 @@ CRITICAL SYSTEM DIRECTIVE:
       { role: "user", parts: [{ text: message }] }
     ];
 
-    // Fetch dynamic model
     const modelsResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
     );
@@ -79,7 +77,7 @@ CRITICAL SYSTEM DIRECTIVE:
           contents,
           generationConfig: {
             maxOutputTokens: 1000,
-            temperature: 0.2,
+            temperature: 0.3,
           }
         }),
       }
@@ -91,29 +89,10 @@ CRITICAL SYSTEM DIRECTIVE:
       throw new Error(data.error?.message || "Failed to fetch response from Gemini API.");
     }
 
-    let rawResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const rawResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    // 🧹 Thorough regex stripper for all internal thought patterns
-    let cleanReply = rawResponse;
-
-    // 1. Remove XML thought blocks
-    cleanReply = cleanReply.replace(/<thought>[\s\S]*?<\/thought>/gi, "");
-
-    // 2. Remove internal planning blocks (e.g. "* User wants: ... * Polite/Helpful? Yes.")
-    cleanReply = cleanReply.replace(/(?:\*|\-)\s*(?:User wants|Catalog check|Role|Tone|Constraint|Polite|Strictly|Includes|No invented|No internal)[\s\S]*?(?=\n\n[A-Z0-9"']|\n[A-Z0-9"']|$)/gi, "");
-
-    // 3. Fallback strip if quoted response exists at the end
-    const quoteMatch = cleanReply.match(/"([^"]+)"/);
-    if (cleanReply.includes("User wants:") && quoteMatch && quoteMatch[1]) {
-      cleanReply = quoteMatch[1];
-    }
-
-    cleanReply = cleanReply.trim();
-
-    // Final fallback
-    if (!cleanReply && rawResponse) {
-      cleanReply = rawResponse;
-    }
+    // Simple, clean response string without risky regex loops
+    const cleanReply = rawResponse.trim();
 
     return NextResponse.json({
       success: true,
