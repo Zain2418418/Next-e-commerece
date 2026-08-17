@@ -7,6 +7,7 @@ export default function ShopPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [addingId, setAddingId] = useState<string | null>(null);
 
   const getProductImage = (product: any) => {
     const img = product?.image;
@@ -60,6 +61,41 @@ export default function ShopPage() {
     fetchShopProducts();
   }, []);
 
+  // Direct Backend API Cart Handler
+  const handleAddToCart = async (e: React.MouseEvent, product: any) => {
+    e.preventDefault();   // Link navigation roknay k liye
+    e.stopPropagation();  // Event bubbling roknay k liye
+
+    const productId = product._id || product.id;
+
+    try {
+      setAddingId(productId);
+      const res = await fetch('/api/cart', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productId: productId,
+          quantity: 1,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        alert('Product added to cart successfully!');
+      } else {
+        alert(data.message || data.error || 'Failed to add product to cart');
+      }
+    } catch (err) {
+      console.error('Error adding product to cart:', err);
+      alert('Error connecting to cart API');
+    } finally {
+      setAddingId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="w-full bg-white text-slate-900 min-h-screen flex items-center justify-center">
@@ -107,6 +143,7 @@ export default function ShopPage() {
               const productId = product._id || product.id;
               const categoryName = typeof product.category === 'object' ? product.category?.name : product.category;
               const imgSrc = getProductImage(product);
+              const isAdding = addingId === productId;
 
               return (
                 <Link 
@@ -139,12 +176,31 @@ export default function ShopPage() {
                   </div>
 
                   <div className="px-5 pb-5 pt-2 flex items-center justify-between border-t border-slate-100">
-                    <span className="text-lg font-black text-slate-900">${product.price}</span>
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${
-                      (product.stock ?? 1) > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'
-                    }`}>
-                      {(product.stock ?? 1) > 0 ? `In Stock (${product.stock ?? 'Yes'})` : 'Out of Stock'}
-                    </span>
+                    <div>
+                      <span className="text-lg font-black text-slate-900 block">${product.price}</span>
+                      <span className={`text-[10px] font-bold ${
+                        (product.stock ?? 1) > 0 ? 'text-emerald-600' : 'text-rose-500'
+                      }`}>
+                        {(product.stock ?? 1) > 0 ? `In Stock (${product.stock ?? 'Yes'})` : 'Out of Stock'}
+                      </span>
+                    </div>
+
+                    {/* ADD TO CART BUTTON */}
+                    <button
+                      type="button"
+                      disabled={isAdding}
+                      onClick={(e) => handleAddToCart(e, product)}
+                      className="bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"
+                    >
+                      {isAdding ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                        </svg>
+                      )}
+                      {isAdding ? 'Adding...' : 'Add'}
+                    </button>
                   </div>
                 </Link>
               );
