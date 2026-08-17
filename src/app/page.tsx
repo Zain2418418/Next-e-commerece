@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Hero from '@/components/Hero';
 import Newsletter from '@/components/Newsletter';
 import { CATEGORIES } from '@/lib/mockData';
+import { ShieldCheck, Truck, Headphones, RefreshCw, ShoppingBag, Check } from 'lucide-react';
 
 export default function Home() {
   const [products, setProducts] = useState<any[]>([]);
@@ -15,22 +16,22 @@ export default function Home() {
   const [maxPrice, setMaxPrice] = useState(500);
   const [sortBy, setSortBy] = useState('featured');
 
+  // Local state for Cart items
+  const [cart, setCart] = useState<any[]>([]);
+
   // Smart Dynamic Image Extractor
   const getProductImage = (product: any) => {
     const img = product?.image;
     const name = product?.name?.toLowerCase() || '';
 
-    // 1. Check if DB has valid image string
     if (typeof img === 'string' && img.startsWith('http') && !img.includes('placeholder')) {
       return img;
     }
     
-    // 2. Check if DB has valid image array with elements
     if (Array.isArray(img) && img.length > 0 && typeof img[0] === 'string' && img[0].startsWith('http')) {
       return img[0];
     }
 
-    // 3. Fallback based on Product Name/Category
     if (name.includes('watch') || name.includes('leather')) {
       return 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&q=80';
     }
@@ -82,6 +83,20 @@ export default function Home() {
     );
   };
 
+  const handleCartToggle = (e: React.MouseEvent, product: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const productId = product._id || product.id;
+    const isInCart = cart.some((item) => (item._id || item.id) === productId);
+
+    if (isInCart) {
+      setCart((prev) => prev.filter((item) => (item._id || item.id) !== productId));
+    } else {
+      setCart((prev) => [...prev, product]);
+    }
+  };
+
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
       const categoryName = typeof product.category === 'object' ? product.category?.name : product.category;
@@ -109,7 +124,65 @@ export default function Home() {
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <Hero />
 
+      {/* Free Shipping & Policy Banner */}
+      <section className="bg-white border-y border-slate-200/80 py-8 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="flex items-center gap-4 p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100/60">
+            <div className="p-3 bg-indigo-600 text-white rounded-xl shadow-md shadow-indigo-200">
+              <Truck className="w-6 h-6" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-gray-900">Free Express Shipping</h4>
+              <p className="text-xs text-gray-500">On all store orders over $50</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100/60">
+            <div className="p-3 bg-emerald-600 text-white rounded-xl shadow-md shadow-emerald-200">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-gray-900">100% Secure Payment</h4>
+              <p className="text-xs text-gray-500">Encrypted transactions & safety</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 p-4 rounded-2xl bg-violet-50/50 border border-violet-100/60">
+            <div className="p-3 bg-violet-600 text-white rounded-xl shadow-md shadow-violet-200">
+              <RefreshCw className="w-6 h-6" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-gray-900">Hassle-Free Returns</h4>
+              <p className="text-xs text-gray-500">10-day money-back guarantee</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 p-4 rounded-2xl bg-amber-50/50 border border-amber-100/60">
+            <div className="p-3 bg-amber-600 text-white rounded-xl shadow-md shadow-amber-200">
+              <Headphones className="w-6 h-6" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-gray-900">24/7 Live Support</h4>
+              <p className="text-xs text-gray-500">Dedicated customer assistance</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
+        {/* Products Section Header */}
+        <div className="text-center max-w-2xl mx-auto mb-10 space-y-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
+            Curated Collection
+          </span>
+          <h2 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-4xl">
+            Explore Our Premium Products
+          </h2>
+          <p className="text-sm text-gray-600 leading-relaxed">
+            Discover top-tier crafted items tailored for your everyday style and technological needs, backed by full quality assurance and fast delivery.
+          </p>
+        </div>
+
         <div className="lg:grid lg:grid-cols-4 lg:gap-x-8 lg:items-start">
           
           {/* Sidebar Filters */}
@@ -225,43 +298,70 @@ export default function Home() {
                   const productId = product._id || product.id;
                   const categoryName = typeof product.category === 'object' ? product.category?.name : product.category;
                   const imgSrc = getProductImage(product);
+                  const isInCart = cart.some((item) => (item._id || item.id) === productId);
 
                   return (
-                    <div key={productId} className="group relative bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300">
-                      <div className="w-full h-64 bg-gray-100 relative overflow-hidden flex items-center justify-center">
-                        <img
-                          src={imgSrc}
-                          alt={product.name || 'Product'}
-                          className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
-                        />
-                        {categoryName && (
-                          <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-black px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border border-gray-200 shadow-sm">
-                            {categoryName}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="p-5 space-y-2">
-                        <h3 className="text-sm font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">
-                          <Link href={`/product/${productId}`}>
-                            <span aria-hidden="true" className="absolute inset-0" />
-                            {product.name}
-                          </Link>
-                        </h3>
-
-                        <div className="flex items-center space-x-1.5">
-                          <span className="text-yellow-400 text-sm">★</span>
-                          <span className="text-xs font-semibold text-gray-700">{product.rating || 5.0}</span>
-                          <span className="text-xs text-gray-400">({product.reviewsCount || 0})</span>
+                    <div key={productId} className="group relative bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between">
+                      <div className="relative">
+                        <div className="w-full h-64 bg-gray-100 relative overflow-hidden flex items-center justify-center">
+                          <img
+                            src={imgSrc}
+                            alt={product.name || 'Product'}
+                            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+                          />
+                          {categoryName && (
+                            <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-black px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border border-gray-200 shadow-sm">
+                              {categoryName}
+                            </span>
+                          )}
                         </div>
 
-                        <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{product.description}</p>
+                        <div className="p-5 space-y-2">
+                          <h3 className="text-sm font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">
+                            <Link href={`/product/${productId}`}>
+                              {product.name}
+                            </Link>
+                          </h3>
 
-                        <div className="flex justify-between items-center pt-2">
-                          <span className="text-lg font-black text-gray-900">${product.price}</span>
-                          <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-                            In Stock ({product.stock ?? 10})
-                          </span>
+                          <div className="flex items-center space-x-1.5">
+                            <span className="text-yellow-400 text-sm">★</span>
+                            <span className="text-xs font-semibold text-gray-700">{product.rating || 5.0}</span>
+                            <span className="text-xs text-gray-400">({product.reviewsCount || 0})</span>
+                          </div>
+
+                          <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{product.description}</p>
+                        </div>
+                      </div>
+
+                      {/* Card Footer with Toggle Add to Cart */}
+                      <div className="p-5 pt-0 mt-auto">
+                        <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                          <div>
+                            <span className="text-lg font-black text-gray-900">${product.price}</span>
+                            <div className="text-[10px] font-medium text-emerald-600">
+                              In Stock ({product.stock ?? 10})
+                            </div>
+                          </div>
+
+                          {/* Add to Cart Toggle Button */}
+                          <button
+                            onClick={(e) => handleCartToggle(e, product)}
+                            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+                              isInCart
+                                ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-700'
+                                : 'bg-slate-900 text-white hover:bg-indigo-600 shadow-sm'
+                            }`}
+                          >
+                            {isInCart ? (
+                              <>
+                                <Check className="w-3.5 h-3.5" /> Added
+                              </>
+                            ) : (
+                              <>
+                                <ShoppingBag className="w-3.5 h-3.5" /> Add
+                              </>
+                            )}
+                          </button>
                         </div>
                       </div>
                     </div>
