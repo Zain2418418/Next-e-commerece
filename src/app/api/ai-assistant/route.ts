@@ -24,10 +24,11 @@ export async function POST(req: Request) {
     const baseContext = getStoreCatalogContext();
     const systemContext = `${baseContext}
 
-STRICT INSTRUCTIONS:
-- You are an AI Shopping Assistant speaking directly to the user.
-- Provide ONLY your final helpful answer.
-- NEVER output internal thoughts, reasoning steps, or catalog evaluation lists.`;
+CRITICAL OUTPUT RULE:
+You are an AI Shopping Assistant directly chatting with a customer.
+Output ONLY the final conversational message intended for the customer.
+DO NOT output any bullet points analyzing user requests, catalog checks, verification steps, or checklists like "Polite? Yes".
+NEVER show internal thinking.`;
 
     let formattedHistory = Array.isArray(chatHistory)
       ? chatHistory.map((msg: { sender: string; text: string }) => ({
@@ -77,7 +78,7 @@ STRICT INSTRUCTIONS:
           contents,
           generationConfig: {
             maxOutputTokens: 1000,
-            temperature: 0.3,
+            temperature: 0.1,
           }
         }),
       }
@@ -89,14 +90,48 @@ STRICT INSTRUCTIONS:
       throw new Error(data.error?.message || "Failed to fetch response from Gemini API.");
     }
 
-    const rawResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const rawResponse: string = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    // Simple, clean response string without risky regex loops
-    const cleanReply = rawResponse.trim();
+    // 🎯 Foolproof extraction logic for thought removal:
+    let cleanReply = rawResponse;
+
+    // 1. Agar quotes ("...") ke andar real response mojud hai to usy nikal lein
+    const doubleQuoteMatch = cleanReply.match(/"([^"]{15,})"/);
+    if (doubleQuoteMatch && doubleQuoteMatch[1]) {
+      cleanReply = doubleQuoteMatch[1];
+    } else {
+      // 2. Aksar AI thinking ke baad aakhir mein real response deta hai, isliye lines filter kar lein
+      const lines = cleanReply.split("\n");
+      const validLines = lines.filter((line) => {
+        const t = line.trim();
+        if (!t) return false;
+        if (t.startsWith("*") || t.startsWith("-")) {
+          if (
+            t.includes("User wants:") ||
+            t.includes("Catalog check:") ||
+            t.includes("Role:") ||
+            t.includes("Tone:") ||
+            t.includes("Constraint:") ||
+            t.includes("Polite?") ||
+            t.includes("Helpful?") ||
+            t.includes("Concise?") ||
+            t.includes("Accurate?") ||
+            t.includes("Matches requirements?") ||
+            t.includes("Includes IDs") ||
+            t.includes("No internal")
+          ) {
+            return false;
+          }
+        }
+        return true;
+      });
+
+      cleanReply = validLines.join("\n").trim();
+    }
 
     return NextResponse.json({
       success: true,
-      reply: cleanReply || "I couldn't fetch a reply. Please try again.",
+      reply: cleanReply || rawResponse,
     });
 
   } catch (error: any) {
