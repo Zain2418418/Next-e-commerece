@@ -24,11 +24,10 @@ export async function POST(req: Request) {
     const baseContext = getStoreCatalogContext();
     const systemContext = `${baseContext}
 
-STRICT OUTPUT RULES:
-1. Provide ONLY the final helpful answer directly to the user.
-2. DO NOT include internal reasoning, thinking steps, thoughts, or regurgitate/echo the user's input.
-3. DO NOT use <thought> tags or output phrases like "The user is asking...".
-4. Speak directly to the customer as a polite, knowledgeable shopping assistant.`;
+CRITICAL SYSTEM DIRECTIVE:
+- You are a direct text assistant. DO NOT show any thinking, catalog checks, step-by-step verification, bullet points of internal reasoning, or thought processes.
+- Respond ONLY with the final message intended for the customer.
+- Never output "User wants:", "Catalog check:", "Role:", "Constraint:", or validation checklists.`;
 
     // Format chat history
     let formattedHistory = Array.isArray(chatHistory)
@@ -80,7 +79,7 @@ STRICT OUTPUT RULES:
           contents,
           generationConfig: {
             maxOutputTokens: 1000,
-            temperature: 0.3,
+            temperature: 0.2,
           }
         }),
       }
@@ -94,16 +93,26 @@ STRICT OUTPUT RULES:
 
     let rawResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    // Thorough cleaning of reasoning blocks, thoughts, and input echoing
-    let cleanReply = rawResponse
-      .replace(/<thought>[\s\S]*?<\/thought>/gi, "")
-      .replace(/^thought:\s*/gi, "")
-      .replace(/<thought>|<\/thought>/gi, "")
-      .trim();
+    // 🧹 Thorough regex stripper for all internal thought patterns
+    let cleanReply = rawResponse;
 
-    // Fallback cleanup if text was entirely wrapped in reasoning blocks
+    // 1. Remove XML thought blocks
+    cleanReply = cleanReply.replace(/<thought>[\s\S]*?<\/thought>/gi, "");
+
+    // 2. Remove internal planning blocks (e.g. "* User wants: ... * Polite/Helpful? Yes.")
+    cleanReply = cleanReply.replace(/(?:\*|\-)\s*(?:User wants|Catalog check|Role|Tone|Constraint|Polite|Strictly|Includes|No invented|No internal)[\s\S]*?(?=\n\n[A-Z0-9"']|\n[A-Z0-9"']|$)/gi, "");
+
+    // 3. Fallback strip if quoted response exists at the end
+    const quoteMatch = cleanReply.match(/"([^"]+)"/);
+    if (cleanReply.includes("User wants:") && quoteMatch && quoteMatch[1]) {
+      cleanReply = quoteMatch[1];
+    }
+
+    cleanReply = cleanReply.trim();
+
+    // Final fallback
     if (!cleanReply && rawResponse) {
-      cleanReply = rawResponse.replace(/<thought>|<\/thought>/gi, "").trim();
+      cleanReply = rawResponse;
     }
 
     return NextResponse.json({
