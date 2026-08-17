@@ -15,7 +15,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { message, chatHistory } = await req.json();
+    const { message } = await req.json();
 
     if (!message || typeof message !== "string" || !message.trim()) {
       return NextResponse.json(
@@ -27,77 +27,176 @@ export async function POST(req: Request) {
       );
     }
 
-    // Store/catalog information
+    // ---------------------------------------------------------
+    // STORE CATALOG
+    // ---------------------------------------------------------
+
     const baseContext = getStoreCatalogContext();
 
-    // Strict instructions: only customer-facing response
+    // ---------------------------------------------------------
+    // STRICT AI INSTRUCTIONS
+    // ---------------------------------------------------------
+
     const systemContext = `${baseContext}
 
-You are the Official AI Shopping Assistant for an e-commerce store.
+You are the Official AI Shopping Assistant for an E-Commerce Store.
 
-IMPORTANT:
-Your response will be displayed directly to the customer.
+Your response is displayed directly to the customer.
 
-You MUST output ONLY the final customer-facing answer.
+YOUR ONLY JOB:
+Answer the customer's message with the final customer-facing response.
 
-NEVER output:
-- Internal reasoning
-- Chain of thought
-- Analysis
-- Thinking
-- Planning
-- Evaluation
-- Decision making
-- Internal checklists
-- Verification steps
-- "User wants..."
-- "Catalog check..."
-- "Role..."
-- "Tone..."
-- "Requirements..."
-- "Constraint..."
-- "Polite?"
-- "Helpful?"
-- "Concise?"
-- "Accurate?"
-- "Strictly matches..."
-- "Includes IDs/Names..."
-- "Direct answer..."
-- Any explanation of how you generated the answer
+STRICT OUTPUT RULES:
+
+1. Output ONLY the final answer for the customer.
+2. NEVER show internal reasoning.
+3. NEVER show chain-of-thought.
+4. NEVER show analysis.
+5. NEVER show thinking.
+6. NEVER show planning.
+7. NEVER show evaluation.
+8. NEVER show decision-making steps.
+9. NEVER show catalog checking steps.
+10. NEVER show internal instructions.
+11. NEVER show internal checklists.
+12. NEVER explain how you generated the answer.
+13. NEVER repeat or describe the customer's request as an internal summary.
+
+NEVER output text such as:
+
+"User wants..."
+"Catalog check..."
+"Role..."
+"Tone..."
+"Requirements..."
+"Constraint..."
+"Polite?"
+"Helpful?"
+"Concise?"
+"Accurate?"
+"Strictly matches..."
+"Includes IDs/Names..."
+"Direct answer..."
+"Thinking..."
+"Reasoning..."
+"Analysis..."
+"Evaluation..."
+"Decision..."
+
+Do not output headings like:
+"Analysis"
+"Thinking"
+"Reasoning"
+"Internal reasoning"
+"Catalog check"
 
 Do not show your work.
 
-Do not describe what the user requested before answering.
+Do not show intermediate steps.
 
-Do not describe how you checked the catalog.
+Do not describe what you checked.
 
-Do not create an analysis section.
+Simply provide the final helpful response.
 
-Do not create a thinking section.
+PRODUCT RULES:
 
-Do not create a checklist.
-
-Simply answer the customer's message naturally.
-
-For product recommendations:
 - Only recommend products that exist in the provided catalog.
-- Use exact product names, IDs, and prices from the catalog.
-- Never invent products or product information.
-- Follow the customer's filters such as price, category, or requirements.
-- Keep the response polite, helpful, concise, and natural.
+- Use exact product names from the catalog.
+- Use exact product IDs from the catalog.
+- Use exact prices from the catalog.
+- Never invent products.
+- Never invent prices.
+- Never invent product IDs.
+- Never invent product specifications.
+- Follow the customer's requested filters such as price, category, rating, or product type.
+- If multiple products match, show the relevant products clearly.
+- If no products match, politely explain that and suggest the closest available option.
 
-The final output must be ready to display directly inside a customer chat UI.`;
+STYLE:
+
+- Polite
+- Helpful
+- Concise
+- Natural
+- Customer-friendly
+
+IMPORTANT:
+The response you generate will be sent directly to the customer.
+Therefore, output ONLY the final customer-facing response.`;
+
+    // ---------------------------------------------------------
+    // GET AVAILABLE GEMINI MODELS
+    // ---------------------------------------------------------
+
+    const modelsResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
+    );
+
+    if (!modelsResponse.ok) {
+      throw new Error("Unable to fetch available Gemini models.");
+    }
+
+    const modelsData = await modelsResponse.json();
+
+    const availableModels =
+      modelsData.models?.filter(
+        (model: any) =>
+          model?.supportedGenerationMethods?.includes(
+            "generateContent"
+          ) &&
+          typeof model?.name === "string"
+      ) || [];
 
     /*
-     * IMPORTANT:
-     * We intentionally do NOT send previous AI responses during testing.
+     * Prefer current models.
      *
-     * This prevents an old response containing "User wants...",
-     * "Catalog check...", etc. from being learned/copied by Gemini.
-     *
-     * Once everything is working correctly, chat history can be
-     * safely added back if needed.
+     * Gemini 2.0 Flash is intentionally NOT included because
+     * Google shut it down on June 1, 2026.
      */
+    const preferredModelNames = [
+      "models/gemini-3.6-flash",
+      "models/gemini-3.5-flash",
+      "models/gemini-2.5-flash",
+    ];
+
+    let targetModel: string | null = null;
+
+    for (const preferredModel of preferredModelNames) {
+      const found = availableModels.find(
+        (model: any) => model.name === preferredModel
+      );
+
+      if (found?.name) {
+        targetModel = found.name;
+        break;
+      }
+    }
+
+    if (!targetModel) {
+      throw new Error(
+        "No supported Gemini Flash model is available for this API key."
+      );
+    }
+
+    console.log("Using Gemini model:", targetModel);
+
+    // ---------------------------------------------------------
+    // IMPORTANT:
+    // DO NOT SEND OLD CHAT HISTORY DURING THIS TEST
+    // ---------------------------------------------------------
+    //
+    // Your previous AI responses contained:
+    // "User wants..."
+    // "Catalog check..."
+    // "Polite..."
+    //
+    // Sending those responses back to Gemini can make the model
+    // reproduce the same format.
+    //
+    // Once the basic response is working correctly, history can
+    // be added back safely.
+    //
+
     const contents = [
       {
         role: "user",
@@ -109,10 +208,9 @@ The final output must be ready to display directly inside a customer chat UI.`;
       },
     ];
 
-    /*
-     * Use one fixed model instead of dynamically selecting a model.
-     */
-    const targetModel = "models/gemini-2.0-flash";
+    // ---------------------------------------------------------
+    // GEMINI REQUEST
+    // ---------------------------------------------------------
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/${targetModel}:generateContent?key=${apiKey}`,
@@ -133,8 +231,9 @@ The final output must be ready to display directly inside a customer chat UI.`;
           contents,
 
           generationConfig: {
-            maxOutputTokens: 1000,
             temperature: 0.2,
+            maxOutputTokens: 1000,
+            responseMimeType: "text/plain",
           },
         }),
       }
@@ -143,73 +242,81 @@ The final output must be ready to display directly inside a customer chat UI.`;
     const data = await response.json();
 
     if (!response.ok) {
+      console.error("Gemini API Error:", data);
+
       throw new Error(
-        data.error?.message ||
-          "Failed to fetch response from Gemini API."
+        data?.error?.message ||
+          "Failed to generate response from Gemini."
       );
     }
 
-    /*
-     * Extract only normal text parts.
-     *
-     * Gemini can return parts with thought=true.
-     * Those parts must NEVER be sent to the customer.
-     */
-    const parts = data.candidates?.[0]?.content?.parts || [];
+    // ---------------------------------------------------------
+    // EXTRACT ONLY CUSTOMER-FACING TEXT
+    // ---------------------------------------------------------
 
-    let cleanReply = parts
-      .filter(
-        (part: any) =>
-          part &&
-          typeof part.text === "string" &&
-          part.thought !== true
-      )
+    const parts =
+      data?.candidates?.[0]?.content?.parts || [];
+
+    /*
+     * Gemini can return multiple parts.
+     *
+     * If a part has:
+     * thought: true
+     *
+     * it must NEVER be shown to the customer.
+     */
+    const normalTextParts = parts.filter(
+      (part: any) =>
+        typeof part?.text === "string" &&
+        part?.thought !== true
+    );
+
+    let cleanReply = normalTextParts
       .map((part: any) => part.text)
       .join("")
       .trim();
 
-    /*
-     * Additional safety cleanup.
-     *
-     * If Gemini accidentally generates internal checklist text,
-     * remove those lines before returning the response.
-     */
-    const forbiddenLinePatterns = [
-      /^\s*[*•-]?\s*User wants\s*:/i,
-      /^\s*[*•-]?\s*Catalog check\s*:/i,
-      /^\s*[*•-]?\s*Role\s*:/i,
-      /^\s*[*•-]?\s*Tone\s*:/i,
-      /^\s*[*•-]?\s*Requirements\s*:/i,
-      /^\s*[*•-]?\s*Constraint\s*:/i,
-      /^\s*[*•-]?\s*Polite\s*\?/i,
-      /^\s*[*•-]?\s*Helpful\s*\?/i,
-      /^\s*[*•-]?\s*Concise\s*\?/i,
-      /^\s*[*•-]?\s*Accurate\s*\?/i,
-      /^\s*[*•-]?\s*Strictly matches\s*:/i,
-      /^\s*[*•-]?\s*Includes IDs\/Names\s*:/i,
-      /^\s*[*•-]?\s*No internal\s*/i,
-      /^\s*[*•-]?\s*Thinking\s*:/i,
-      /^\s*[*•-]?\s*Reasoning\s*:/i,
-      /^\s*[*•-]?\s*Analysis\s*:/i,
-      /^\s*[*•-]?\s*Evaluation\s*:/i,
-      /^\s*[*•-]?\s*Decision\s*:/i,
-      /^\s*[*•-]?\s*Direct answer\s*:/i,
+    // ---------------------------------------------------------
+    // REMOVE ACCIDENTAL INTERNAL CHECKLIST LINES
+    // ---------------------------------------------------------
+
+    const forbiddenPatterns = [
+      /^\s*[*•\-]?\s*User wants\s*:/i,
+      /^\s*[*•\-]?\s*Catalog check\s*:/i,
+      /^\s*[*•\-]?\s*Role\s*:/i,
+      /^\s*[*•\-]?\s*Tone\s*:/i,
+      /^\s*[*•\-]?\s*Requirements\s*:/i,
+      /^\s*[*•\-]?\s*Constraint\s*:/i,
+      /^\s*[*•\-]?\s*Polite\s*\?/i,
+      /^\s*[*•\-]?\s*Helpful\s*\?/i,
+      /^\s*[*•\-]?\s*Concise\s*\?/i,
+      /^\s*[*•\-]?\s*Accurate\s*\?/i,
+      /^\s*[*•\-]?\s*Strictly matches\s*:/i,
+      /^\s*[*•\-]?\s*Includes IDs\/Names\s*:/i,
+      /^\s*[*•\-]?\s*Direct answer\s*:/i,
+      /^\s*[*•\-]?\s*Thinking\s*:/i,
+      /^\s*[*•\-]?\s*Reasoning\s*:/i,
+      /^\s*[*•\-]?\s*Analysis\s*:/i,
+      /^\s*[*•\-]?\s*Evaluation\s*:/i,
+      /^\s*[*•\-]?\s*Decision\s*:/i,
+      /^\s*[*•\-]?\s*Internal reasoning\s*:/i,
     ];
 
     cleanReply = cleanReply
       .split("\n")
       .filter(
         (line: string) =>
-          !forbiddenLinePatterns.some((pattern) =>
+          !forbiddenPatterns.some((pattern) =>
             pattern.test(line)
           )
       )
       .join("\n")
       .trim();
 
-    /*
-     * Remove XML-style thought/reasoning blocks if any appear.
-     */
+    // ---------------------------------------------------------
+    // REMOVE XML THINKING TAGS IF THEY APPEAR
+    // ---------------------------------------------------------
+
     cleanReply = cleanReply
       .replace(
         /<(think|thinking|thought|analysis|reasoning)>[\s\S]*?<\/\1>/gi,
@@ -217,20 +324,25 @@ The final output must be ready to display directly inside a customer chat UI.`;
       )
       .trim();
 
-    /*
-     * Final fallback.
-     */
+    // ---------------------------------------------------------
+    // FINAL SAFETY CHECK
+    // ---------------------------------------------------------
+
     if (!cleanReply) {
       cleanReply =
         "Sorry, I couldn't generate a response right now. Please try again.";
     }
+
+    // ---------------------------------------------------------
+    // RETURN ONLY THE FINAL REPLY
+    // ---------------------------------------------------------
 
     return NextResponse.json({
       success: true,
       reply: cleanReply,
     });
   } catch (error: any) {
-    console.error("Gemini AI API Error:", error);
+    console.error("AI Assistant Error:", error);
 
     return NextResponse.json(
       {
