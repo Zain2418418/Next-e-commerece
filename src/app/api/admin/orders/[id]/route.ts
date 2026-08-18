@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
-import Order from '@/models/Order'; // Adjust model import path if needed
+import Order from '@/models/Order';
 
 export async function PATCH(
   req: NextRequest,
@@ -8,7 +8,7 @@ export async function PATCH(
 ) {
   try {
     await dbConnect();
-    const { id } = await params; // 👈 await params added
+    const { id } = await params;
     const body = await req.json();
 
     if (!body.status) {

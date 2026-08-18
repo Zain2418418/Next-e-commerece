@@ -7,16 +7,19 @@ export async function GET() {
   try {
     await dbConnect();
 
-    // Fetch orders and populate user details (name, email)
+    // Fetch orders and populate user and product details
     const orders = await Order.find()
       .populate('user', 'name email')
+      .populate('items.product', 'name price image')
       .sort({ createdAt: -1 });
 
-    return NextResponse.json({
-      success: true,
-      orders,
-    }, { status: 200 });
-
+    return NextResponse.json(
+      {
+        success: true,
+        orders,
+      },
+      { status: 200 }
+    );
   } catch (error: any) {
     console.error('Fetch Orders Error:', error);
     return NextResponse.json(
@@ -41,7 +44,7 @@ export async function PUT(req: Request) {
 
     const updatedOrder = await Order.findByIdAndUpdate(
       orderId,
-      { orderStatus },
+      { status: orderStatus },
       { new: true }
     );
 
@@ -52,12 +55,14 @@ export async function PUT(req: Request) {
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Order status updated successfully!',
-      order: updatedOrder,
-    }, { status: 200 });
-
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'Order status updated successfully!',
+        order: updatedOrder,
+      },
+      { status: 200 }
+    );
   } catch (error: any) {
     console.error('Update Order Error:', error);
     return NextResponse.json(
