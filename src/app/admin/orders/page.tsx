@@ -44,6 +44,7 @@ export default function AdminOrdersPage() {
   const fetchOrders = async () => {
     try {
       setLoading(true);
+      setError('');
       const res = await fetch('/api/admin/orders');
       const data = await res.json();
 
@@ -52,8 +53,8 @@ export default function AdminOrdersPage() {
       } else {
         setError(data.error || 'Failed to fetch orders');
       }
-    } catch (err) {
-      setError('Something went wrong fetching orders');
+    } catch (err: any) {
+      setError(err?.message || 'Something went wrong fetching orders');
     } finally {
       setLoading(false);
     }
@@ -89,7 +90,7 @@ export default function AdminOrdersPage() {
   };
 
   // Helper function for status badges
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string = 'Pending') => {
     switch (status.toLowerCase()) {
       case 'delivered':
         return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
@@ -120,7 +121,9 @@ export default function AdminOrdersPage() {
           <Loader2 className="animate-spin text-indigo-600" size={36} />
         </div>
       ) : error ? (
-        <div className="p-4 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>
+        <div className="p-4 bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400 rounded-lg text-sm border border-red-200 dark:border-red-900">
+          {error}
+        </div>
       ) : (
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="w-full overflow-x-auto">
@@ -152,7 +155,7 @@ export default function AdminOrdersPage() {
                     return (
                       <tr key={order._id} className="hover:bg-gray-50 dark:hover:bg-gray-900/40">
                         <td className="p-4 font-mono text-xs font-semibold text-gray-900 dark:text-white">
-                          #{order._id.substring(order._id.length - 8)}
+                          #{order._id ? order._id.substring(order._id.length - 8) : 'N/A'}
                         </td>
                         <td className="p-4">
                           <div className="font-medium text-gray-900 dark:text-white">
@@ -169,7 +172,7 @@ export default function AdminOrdersPage() {
                               order.status
                             )}`}
                           >
-                            {order.status}
+                            {order.status || 'Pending'}
                           </span>
                         </td>
                         <td className="p-4 text-xs text-gray-500 whitespace-nowrap">
@@ -178,7 +181,7 @@ export default function AdminOrdersPage() {
                         <td className="p-4 text-right">
                           <select
                             disabled={updatingId === order._id}
-                            value={order.status}
+                            value={order.status || 'Pending'}
                             onChange={(e) => handleStatusChange(order._id, e.target.value)}
                             className="px-3 py-1.5 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 dark:text-white font-medium"
                           >
