@@ -13,6 +13,7 @@ import {
   ChevronDown,
   Bell,
   UserCheck,
+  Package,
 } from "lucide-react";
 import NotificationDrawer, { NotificationItem } from "./NotificationDrawer";
 
@@ -263,13 +264,22 @@ export default function Navbar() {
                         </p>
                       </div>
 
-                      {/* 👤 Profile Link Option Added */}
+                      {/* 👤 Profile Link */}
                       <Link
                         href="/profile"
                         onClick={() => setShowDropdown(false)}
                         className="w-full flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
                       >
                         <UserCheck className="w-4 h-4 text-indigo-600" /> My Profile
+                      </Link>
+
+                      {/* 📦 MY ORDERS LINK ADDED */}
+                      <Link
+                        href="/orders"
+                        onClick={() => setShowDropdown(false)}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                      >
+                        <Package className="w-4 h-4 text-indigo-600" /> My Orders
                       </Link>
 
                       <button
@@ -336,7 +346,6 @@ export default function Navbar() {
             <div className="pt-2 border-t border-slate-100">
               {user ? (
                 <div className="space-y-2">
-                  {/* Clickable Mobile User Card to Profile */}
                   <Link
                     href="/profile"
                     onClick={() => setIsOpen(false)}
@@ -347,6 +356,15 @@ export default function Navbar() {
                       <span className="text-xs font-semibold text-indigo-600">View Profile →</span>
                     </p>
                     <p className="text-xs text-indigo-600/80 truncate">{user.email}</p>
+                  </Link>
+
+                  {/* 📦 Mobile My Orders */}
+                  <Link
+                    href="/orders"
+                    onClick={() => setIsOpen(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-all"
+                  >
+                    <Package className="w-5 h-5 text-indigo-600" /> My Orders
                   </Link>
 
                   <button

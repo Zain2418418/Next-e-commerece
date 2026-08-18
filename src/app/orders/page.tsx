@@ -36,12 +36,12 @@ export default function OrderHistoryPage() {
       }
     };
 
-    // 1. First check Firebase auth status
+    // Check Firebase auth first
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user && user.email) {
         fetchOrders(user.email);
       } else {
-        // 2. Fallback to LocalStorage if Firebase state not synced yet
+        // Fallback to LocalStorage
         let email = '';
         const savedUser =
           localStorage.getItem('user') ||
