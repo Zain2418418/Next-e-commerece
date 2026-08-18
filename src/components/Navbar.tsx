@@ -23,6 +23,9 @@ export default function Navbar() {
   const [user, setUser] = useState<{ name?: string; email?: string } | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
 
+  // 🌟 Announcement Banner Dismiss State
+  const [showBanner, setShowBanner] = useState(true);
+
   // 🔔 Dynamic User Notifications State
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([
@@ -136,13 +139,24 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full">
-      {/* 🌟 Top Announcement Bar */}
-      <div className="bg-gradient-to-r from-violet-600 via-indigo-600 to-sky-500 py-1.5 px-3 sm:px-4 text-center text-[10px] xs:text-xs font-semibold text-white shadow-inner flex items-center justify-center gap-1.5 sm:gap-2">
-        <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 animate-pulse text-yellow-300 shrink-0" />
-        <span className="truncate max-w-[300px] xs:max-w-none">
-          Special Offer: Enjoy Free Express Shipping on all orders above $50!
-        </span>
-      </div>
+      {/* 🌟 Top Announcement Bar with Dismiss / Close Feature */}
+      {showBanner && (
+        <div className="relative bg-gradient-to-r from-violet-600 via-indigo-600 to-sky-500 py-1.5 px-8 sm:px-10 text-center text-[10px] xs:text-xs font-semibold text-white shadow-inner flex items-center justify-center gap-1.5 sm:gap-2">
+          <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 animate-pulse text-yellow-300 shrink-0" />
+          <span className="truncate max-w-[300px] xs:max-w-none">
+            Special Offer: Enjoy Free Express Shipping on all orders above $50!
+          </span>
+
+          {/* Dismiss Button */}
+          <button
+            onClick={() => setShowBanner(false)}
+            aria-label="Dismiss Offer"
+            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 p-1 text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       <nav className="w-full border-b border-slate-100 bg-white/80 backdrop-blur-md transition-all duration-300 shadow-sm">
         <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8">
