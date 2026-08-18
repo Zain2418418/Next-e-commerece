@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Bot, X, Send, Sparkles, Loader2, RefreshCw } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 interface Message {
   id: string;
@@ -15,6 +15,8 @@ interface Message {
 
 export default function AiAssistant() {
   const router = useRouter();
+  const pathname = usePathname();
+
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -158,6 +160,11 @@ export default function AiAssistant() {
       },
     ]);
   };
+
+  // 🚫 Admin routes ya Admin Login page par AI Assistant show nahi hoga
+  if (pathname?.startsWith("/admin")) {
+    return null;
+  }
 
   return (
     <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex flex-col items-end">

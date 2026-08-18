@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { db } from "@/lib/firebase";
 import { ref, push, onValue } from "firebase/database";
 import { MessageCircle, X, Send, User } from "lucide-react";
+import { usePathname } from "next/navigation";
 
 interface ChatMessage {
   id: string;
@@ -13,6 +14,7 @@ interface ChatMessage {
 }
 
 export default function CustomerChatWidget() {
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -91,6 +93,11 @@ export default function CustomerChatWidget() {
       userName: userName,
     });
   };
+
+  // 🚫 Admin routes ya Admin Login page par Live Chat bubble show nahi hoga
+  if (pathname?.startsWith("/admin")) {
+    return null;
+  }
 
   return (
     <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40">
