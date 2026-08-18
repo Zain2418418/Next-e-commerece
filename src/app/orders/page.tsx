@@ -4,44 +4,63 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Package, Clock, CheckCircle2, ArrowLeft, Loader2, Download } from 'lucide-react';
 import { generateInvoice } from '@/lib/generateInvoice';
+import { auth } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export default function OrderHistoryPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let email = '';
-    const savedUser = localStorage.getItem('user') || localStorage.getItem('userInfo');
-
-    if (savedUser) {
+    const fetchOrders = async (userEmail: string) => {
       try {
-        const parsed = JSON.parse(savedUser);
-        email = parsed.email || parsed.user?.email || '';
-      } catch (e) {
-        // Safe fallback if raw string stored
-        if (savedUser.includes('@')) email = savedUser;
-      }
-    }
+        const fetchUrl = userEmail
+          ? `/api/orders?email=${encodeURIComponent(userEmail)}`
+          : '/api/orders';
 
-    const fetchUrl = email 
-      ? `/api/orders?email=${encodeURIComponent(email)}` 
-      : '/api/orders';
+        const res = await fetch(fetchUrl, {
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        });
+        const data = await res.json();
 
-    fetch(fetchUrl, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      // Ensure cookies are included in request
-      credentials: 'include', 
-    })
-      .then((res) => res.json())
-      .then((data) => {
         if (data.orders) {
           setOrders(data.orders);
+        } else if (Array.isArray(data)) {
+          setOrders(data);
         }
-      })
-      .catch((err) => console.error('Error fetching orders:', err))
-      .finally(() => setLoading(false));
+      } catch (err) {
+        console.error('Error fetching orders:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // 1. First check Firebase auth status
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user && user.email) {
+        fetchOrders(user.email);
+      } else {
+        // 2. Fallback to LocalStorage if Firebase state not synced yet
+        let email = '';
+        const savedUser =
+          localStorage.getItem('user') ||
+          localStorage.getItem('userInfo') ||
+          localStorage.getItem('authUser');
+
+        if (savedUser) {
+          try {
+            const parsed = JSON.parse(savedUser);
+            email = parsed.email || parsed.user?.email || '';
+          } catch (e) {
+            if (savedUser.includes('@')) email = savedUser;
+          }
+        }
+        fetchOrders(email);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   if (loading) {
@@ -81,11 +100,11 @@ export default function OrderHistoryPage() {
             {orders.map((order) => {
               const orderId = order._id ? order._id.slice(-8) : 'N/A';
               const isPaid = order.paymentStatus === 'paid';
-              const totalAmount = Number(order.totalAmount || 0);
+              const totalAmount = Number(order.totalAmount || order.total || 0);
 
               return (
                 <div
-                  key={order._id}
+                  key={order._id || Math.random()}
                   className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-4"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
@@ -138,7 +157,7 @@ export default function OrderHistoryPage() {
 
                     <div>
                       <button
-                        onClick={() => generateInvoice(order)}
+                        onClick={() => generateInvoice && generateInvoice(order)}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 rounded-xl text-xs font-bold transition"
                       >
                         <Download className="w-3.5 h-3.5" /> Invoice
@@ -149,8 +168,8 @@ export default function OrderHistoryPage() {
                   {order.items && order.items.length > 0 && (
                     <div className="space-y-2">
                       {order.items.map((item: any, idx: number) => {
-                        const itemName = item.name || item.product?.name || 'Item';
-                        const itemQuantity = item.quantity || 1;
+                        const itemName = item.name || item.title || item.product?.name || 'Item';
+                        const itemQuantity = item.quantity || item.qty || 1;
                         const itemPrice = Number(item.price || item.product?.price || 0);
 
                         return (
