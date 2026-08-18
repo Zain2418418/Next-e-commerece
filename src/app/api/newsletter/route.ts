@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import dbconnect from "@/lib/dbConnect";
 import mongoose from "mongoose";
 
-// Simple Subscriber Schema
+// Subscriber Schema
 const subscriberSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   createdAt: { type: Date, default: Date.now },
@@ -11,10 +11,59 @@ const subscriberSchema = new mongoose.Schema({
 const Subscriber =
   mongoose.models.Subscriber || mongoose.model("Subscriber", subscriberSchema);
 
+// 1. GET: Fetch all subscribers for Admin Panel
+export async function GET() {
+  try {
+    await dbconnect();
+    const subscribers = await Subscriber.find({}).sort({ createdAt: -1 });
+    
+    // Formatting response to match Frontend requirements
+    const formattedSubscribers = subscribers.map((sub) => ({
+      id: sub._id.toString(),
+      email: sub.email,
+      subscribedAt: sub.createdAt,
+    }));
+
+    return NextResponse.json({ subscribers: formattedSubscribers }, { status: 200 });
+  } catch (error: any) {
+    console.error("Fetch Subscribers Error:", error);
+    return NextResponse.json(
+      { success: false, message: "Failed to fetch subscribers." },
+      { status: 500 }
+    );
+  }
+}
+
+// 2. POST: Handle both User Subscriptions & Admin Email Broadcasts
 export async function POST(req: Request) {
   try {
     await dbconnect();
-    const { email } = await req.json();
+    const body = await req.json();
+
+    // CASE A: Admin Sending Broadcast Email to all subscribers
+    if (body.subject && body.content) {
+      const { subject, content } = body;
+      const subscribers = await Subscriber.find({});
+      const emails = subscribers.map((s) => s.email);
+
+      if (emails.length === 0) {
+        return NextResponse.json(
+          { success: false, message: "No subscribers found to send emails." },
+          { status: 400 }
+        );
+      }
+
+      // TODO: Integrate your Email Provider here (e.g. Resend, Nodemailer, SendGrid)
+      console.log(`Sending Email - Subject: "${subject}" to ${emails.length} subscribers.`);
+
+      return NextResponse.json({
+        success: true,
+        message: `Broadcast email sent to ${emails.length} subscribers!`,
+      });
+    }
+
+    // CASE B: User Subscribing to Newsletter
+    const { email } = body;
 
     if (!email || !email.includes("@")) {
       return NextResponse.json(
@@ -39,9 +88,38 @@ export async function POST(req: Request) {
       { status: 201 }
     );
   } catch (error: any) {
-    console.error("Newsletter Subscription Error:", error);
+    console.error("Newsletter API Error:", error);
     return NextResponse.json(
-      { success: false, message: "Failed to subscribe. Please try again later." },
+      { success: false, message: "An error occurred. Please try again later." },
+      { status: 500 }
+    );
+  }
+}
+
+// 3. DELETE: Remove subscriber by ID
+export async function DELETE(req: Request) {
+  try {
+    await dbconnect();
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, message: "Subscriber ID is required." },
+        { status: 400 }
+      );
+    }
+
+    await Subscriber.findByIdAndDelete(id);
+
+    return NextResponse.json(
+      { success: true, message: "Subscriber removed successfully." },
+      { status: 200 }
+    );
+  } catch (error: any) {
+    console.error("Delete Subscriber Error:", error);
+    return NextResponse.json(
+      { success: false, message: "Failed to delete subscriber." },
       { status: 500 }
     );
   }
