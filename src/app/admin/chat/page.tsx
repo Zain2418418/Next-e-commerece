@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { db } from "@/lib/firebase";
-import { ref, onValue, push } from "firebase/database";
-import { MessageSquare, Send, User, Search, Clock } from "lucide-react";
+import { ref, onValue, push, set } from "firebase/database";
+import { MessageSquare, Send, User, Search, Clock, Plus, X } from "lucide-react";
 
 interface ChatMessage {
   id: string;
@@ -25,6 +25,12 @@ export default function AdminChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [replyText, setReplyText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // New Chat Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserMessage, setNewUserMessage] = useState("");
+
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // 1. Fetch All Active Chat Sessions from Firebase
@@ -69,7 +75,7 @@ export default function AdminChatPage() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [selectedSessionId]);
 
   // 2. Fetch Messages for Selected Session
   useEffect(() => {
@@ -106,28 +112,81 @@ export default function AdminChatPage() {
     setReplyText("");
 
     const messagesRef = ref(db, `chats/${selectedSessionId}/messages`);
+    const now = Date.now();
+
     await push(messagesRef, {
       sender: "admin",
       text: textToSend,
-      timestamp: Date.now(),
+      timestamp: now,
+    });
+
+    // Update info section for session list
+    const currentSession = sessions.find((s) => s.id === selectedSessionId);
+    const infoRef = ref(db, `chats/${selectedSessionId}/info`);
+    await push(infoRef, {
+      userName: currentSession?.userName || "Customer",
+      lastMessage: textToSend,
+      updatedAt: now,
     });
   };
 
-  const filteredSessions = sessions.filter((s) =>
-    s.userName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.id.toLowerCase().includes(searchQuery.toLowerCase())
+  // 4. Admin Start New Chat Session with a User
+  const handleStartNewChat = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserName.trim() || !newUserMessage.trim()) return;
+
+    const newSessionId = `chat_${Date.now()}`;
+    const now = Date.now();
+
+    // 1. Add session info
+    const infoRef = ref(db, `chats/${newSessionId}/info`);
+    await push(infoRef, {
+      userName: newUserName.trim(),
+      lastMessage: newUserMessage.trim(),
+      updatedAt: now,
+    });
+
+    // 2. Add first initial message
+    const messagesRef = ref(db, `chats/${newSessionId}/messages`);
+    await push(messagesRef, {
+      sender: "admin",
+      text: newUserMessage.trim(),
+      timestamp: now,
+    });
+
+    setSelectedSessionId(newSessionId);
+    setNewUserName("");
+    setNewUserMessage("");
+    setIsModalOpen(false);
+  };
+
+  const filteredSessions = sessions.filter(
+    (s) =>
+      s.userName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.id.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-          <MessageSquare className="w-7 h-7 text-indigo-600" />
-          Live Customer Support Chat
-        </h1>
-        <p className="text-sm text-slate-500">
-          Respond to customer queries in real-time.
-        </p>
+      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+            <MessageSquare className="w-7 h-7 text-indigo-600" />
+            Live Customer Support Chat
+          </h1>
+          <p className="text-sm text-slate-500">
+            Respond to customer queries in real-time or initiate new customer conversations.
+          </p>
+        </div>
+
+        {/* Start New Chat Button */}
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm transition-all active:scale-95 self-start md:self-auto"
+        >
+          <Plus className="w-4 h-4" />
+          Start New Chat
+        </button>
       </div>
 
       {/* Main Chat Interface Grid */}
@@ -142,7 +201,7 @@ export default function AdminChatPage() {
                 placeholder="Search chats..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600"
+                className="w-full pl-9 pr-3 py-2 text-xs bg-white text-slate-900 placeholder:text-slate-400 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 font-medium"
               />
             </div>
           </div>
@@ -251,7 +310,7 @@ export default function AdminChatPage() {
                   placeholder="Type your reply as Admin..."
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
-                  className="flex-1 text-xs border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-600"
+                  className="flex-1 text-xs text-slate-900 bg-white placeholder:text-slate-400 border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 font-medium"
                 />
                 <button
                   type="submit"
@@ -265,11 +324,78 @@ export default function AdminChatPage() {
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-slate-400 text-xs">
               <MessageSquare className="w-12 h-12 mb-3 stroke-1 opacity-40" />
-              Select a conversation from the left to start chatting.
+              Select a conversation from the left to start chatting or create a new chat.
             </div>
           )}
         </div>
       </div>
+
+      {/* Modal: Start New Chat with User */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-slate-200">
+            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <User className="w-5 h-5 text-indigo-600" />
+                Start New Customer Chat
+              </h3>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleStartNewChat} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Customer / User Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. John Doe or User Email"
+                  value={newUserName}
+                  onChange={(e) => setNewUserName(e.target.value)}
+                  className="w-full text-xs text-slate-900 bg-white placeholder:text-slate-400 border border-slate-300 rounded-xl p-3 focus:outline-none focus:border-indigo-600 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Initial Message
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  placeholder="Type message to start conversation..."
+                  value={newUserMessage}
+                  onChange={(e) => setNewUserMessage(e.target.value)}
+                  className="w-full text-xs text-slate-900 bg-white placeholder:text-slate-400 border border-slate-300 rounded-xl p-3 focus:outline-none focus:border-indigo-600 font-medium resize-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 flex items-center gap-1.5"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  Start Conversation
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
