@@ -9,7 +9,7 @@ import {
   Package, 
   Layers, 
   ShoppingBag, 
-  MessageSquare, // 👈 Added MessageSquare Icon
+  MessageSquare,
   LogOut,
   Bell,
   ChevronDown,
@@ -21,11 +21,6 @@ import NotificationDrawer, { NotificationItem } from '@/components/NotificationD
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  // 🔴 If current route is /admin/login, bypass the Admin Layout (Sidebar & Header)
-  if (pathname === '/admin/login') {
-    return <>{children}</>;
-  }
-
   // 📱 Mobile Sidebar State
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -36,6 +31,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   // 🔔 Admin Notification Drawer States
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [adminNotifications, setAdminNotifications] = useState<NotificationItem[]>([]);
+
+  // 🔴 Bypass layout if on login screen
+  if (pathname === '/admin/login') {
+    return <>{children}</>;
+  }
 
   // 🔄 Dynamic Notification Fetching Logic
   useEffect(() => {
@@ -88,17 +88,28 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return () => clearInterval(interval);
   }, []);
 
+  // 🔒 Admin Auth Profile Fetcher
   useEffect(() => {
     const checkUser = () => {
       try {
-        const storedUser = localStorage.getItem('user');
+        const storedUser = localStorage.getItem('user') || localStorage.getItem('authUser') || localStorage.getItem('adminUser');
         if (storedUser) {
-          setAdminUser(JSON.parse(storedUser));
+          const parsed = JSON.parse(storedUser);
+          setAdminUser({
+            name: parsed.name || parsed.displayName || 'Admin User',
+            email: parsed.email || 'admin@estore.com',
+          });
         } else {
-          setAdminUser(null);
+          setAdminUser({
+            name: 'Admin User',
+            email: 'admin@estore.com',
+          });
         }
       } catch (e) {
-        setAdminUser(null);
+        setAdminUser({
+          name: 'Admin User',
+          email: 'admin@estore.com',
+        });
       }
     };
 
@@ -119,6 +130,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       console.error('Logout error:', e);
     } finally {
       localStorage.removeItem('user');
+      localStorage.removeItem('authUser');
       localStorage.removeItem('token');
       setAdminUser(null);
       setShowDropdown(false);
@@ -139,7 +151,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Product Management', href: '/admin/products', icon: Package },
     { name: 'Category Management', href: '/admin/categories', icon: Layers },
     { name: 'Order Management', href: '/admin/orders', icon: ShoppingBag },
-    { name: 'Live Support Chat', href: '/admin/chat', icon: MessageSquare }, // 👈 Live Chat Link Added
+    { name: 'Live Support Chat', href: '/admin/chat', icon: MessageSquare },
   ];
 
   return (
