@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Star, CheckCircle, AlertCircle } from 'lucide-react';
+import { Star, CheckCircle, AlertCircle, User, Mail } from 'lucide-react';
 
 interface Review {
   _id?: string;
@@ -17,19 +17,33 @@ export default function ProductReviews({ productId }: { productId: string }) {
   const [rating, setRating] = useState<number>(5);
   const [hoverRating, setHoverRating] = useState<number>(0);
   const [comment, setComment] = useState('');
+  const [userName, setUserName] = useState('');
+  const [userEmail, setUserEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  // 🔄 Fetch Reviews directly for Product Page
+  useEffect(() => {
+    // Auto-fill logged-in user details if available
+    try {
+      const storedUser = localStorage.getItem('user') || localStorage.getItem('authUser');
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        if (parsed.name || parsed.displayName) setUserName(parsed.name || parsed.displayName);
+        if (parsed.email) setUserEmail(parsed.email);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
   const fetchReviews = async () => {
     try {
       setFetching(true);
       const res = await fetch(`/api/reviews?productId=${productId}`);
       const data = await res.json();
       if (data.success) {
-        const list = data.reviews || data.data || [];
-        setReviews(list);
+        setReviews(data.reviews || data.data || []);
       }
     } catch (err) {
       console.error('Failed to fetch reviews:', err);
@@ -44,7 +58,6 @@ export default function ProductReviews({ productId }: { productId: string }) {
     }
   }, [productId]);
 
-  // 📝 Submit Review
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!comment.trim()) {
@@ -56,28 +69,13 @@ export default function ProductReviews({ productId }: { productId: string }) {
       setLoading(true);
       setMessage(null);
 
-      // Read Logged-In User Details from Local Storage
-      const storedUser = localStorage.getItem('user') || localStorage.getItem('authUser');
-      let parsedUser: any = null;
-      
-      try {
-        if (storedUser) parsedUser = JSON.parse(storedUser);
-      } catch (e) {
-        console.error(e);
-      }
-
-      const userName = parsedUser?.name || parsedUser?.displayName || 'Zain';
-      const userEmail = parsedUser?.email || 'zainulabedeen2418@gmail.com';
-      const userId = parsedUser?.id || parsedUser?._id || 'user_123';
-
       const res = await fetch('/api/reviews', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           productId,
-          userId,
-          userName,
-          userEmail,
+          userName: userName.trim() || 'Zain',
+          userEmail: userEmail.trim() || 'zainulabedeen2418@gmail.com',
           rating,
           comment,
         }),
@@ -92,7 +90,7 @@ export default function ProductReviews({ productId }: { productId: string }) {
         });
         setComment('');
         setRating(5);
-        fetchReviews(); // Instantly update review list on UI
+        fetchReviews();
       } else {
         setMessage({
           text: data.message || 'Failed to submit review.',
@@ -126,16 +124,16 @@ export default function ProductReviews({ productId }: { productId: string }) {
         </div>
       </div>
 
-      {/* Write a Review Box */}
-      <div className="bg-gray-900 text-white p-6 rounded-2xl shadow-sm border border-gray-800 space-y-4">
+      {/* Review Input Box */}
+      <div className="bg-[#0f172a] text-white p-6 rounded-2xl shadow-lg border border-gray-800 space-y-4">
         <h3 className="text-lg font-semibold">Write a Review</h3>
 
         {message && (
           <div
             className={`p-4 rounded-xl text-sm font-medium flex items-center gap-2 ${
               message.type === 'success'
-                ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-800'
-                : 'bg-rose-950/60 text-rose-300 border border-rose-800'
+                ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800'
+                : 'bg-rose-950/80 text-rose-300 border border-rose-800'
             }`}
           >
             {message.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
@@ -144,6 +142,40 @@ export default function ProductReviews({ productId }: { productId: string }) {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">
+                Your Name
+              </label>
+              <div className="relative">
+                <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <input
+                  type="text"
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                  placeholder="Enter your name"
+                  className="w-full bg-[#020617] border border-gray-800 rounded-xl pl-9 pr-3 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 transition-colors"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">
+                Your Email
+              </label>
+              <div className="relative">
+                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <input
+                  type="email"
+                  value={userEmail}
+                  onChange={(e) => setUserEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  className="w-full bg-[#020617] border border-gray-800 rounded-xl pl-9 pr-3 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 transition-colors"
+                />
+              </div>
+            </div>
+          </div>
+
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Rating</label>
             <div className="flex gap-1">
@@ -174,7 +206,7 @@ export default function ProductReviews({ productId }: { productId: string }) {
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder="Share details about quality, fitting, or delivery..."
-              className="w-full bg-gray-950 border border-gray-800 rounded-xl p-3 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 transition-colors"
+              className="w-full bg-[#020617] border border-gray-800 rounded-xl p-3 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 transition-colors"
             />
           </div>
 
@@ -188,7 +220,7 @@ export default function ProductReviews({ productId }: { productId: string }) {
         </form>
       </div>
 
-      {/* Reviews List */}
+      {/* Styled Reviews List */}
       <div className="space-y-4">
         {fetching ? (
           <p className="text-sm text-gray-500">Loading reviews...</p>
@@ -196,14 +228,17 @@ export default function ProductReviews({ productId }: { productId: string }) {
           <p className="text-sm text-gray-500 italic">No reviews yet. Be the first to review!</p>
         ) : (
           reviews.map((rev) => (
-            <div key={rev._id} className="p-4 rounded-xl border border-gray-800 space-y-2 bg-gray-900/40">
+            <div
+              key={rev._id}
+              className="p-5 rounded-2xl border border-gray-800 space-y-3 bg-[#0f172a] shadow-sm hover:border-gray-700 transition-colors"
+            >
               <div className="flex justify-between items-center">
                 <span className="font-bold text-sm text-white">{rev.userName}</span>
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-gray-500">
                   {rev.createdAt ? new Date(rev.createdAt).toLocaleDateString() : 'Recent'}
                 </span>
               </div>
-              <div className="flex gap-0.5 text-amber-400">
+              <div className="flex gap-1 text-amber-400">
                 {[...Array(5)].map((_, i) => (
                   <Star
                     key={i}
@@ -212,7 +247,7 @@ export default function ProductReviews({ productId }: { productId: string }) {
                   />
                 ))}
               </div>
-              <p className="text-sm text-gray-300">{rev.comment}</p>
+              <p className="text-sm text-gray-300 leading-relaxed">{rev.comment}</p>
             </div>
           ))
         )}
