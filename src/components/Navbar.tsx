@@ -24,19 +24,20 @@ export default function Navbar() {
   const [user, setUser] = useState<{ _id?: string; name?: string; email?: string } | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
 
-  // 🌟 Announcement Banner Dismiss State
+  // Announcement Banner State
   const [showBanner, setShowBanner] = useState(true);
 
-  // 🔔 Dynamic User Notifications State
+  // Dynamic Notifications State & Tracking
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [lastUnreadCount, setLastUnreadCount] = useState<number>(0);
 
-  // 🔄 Real-Time Database Fetch Function
+  // Real-time notification fetch with instant toast trigger
   const fetchNotifications = useCallback(async () => {
     try {
       const storedUser = localStorage.getItem("user");
       const userId = storedUser ? JSON.parse(storedUser)._id : null;
-      
+
       const res = await fetch(`/api/notifications?userId=${userId || ""}`);
       const data = await res.json();
 
@@ -51,25 +52,36 @@ export default function Navbar() {
             ? new Date(n.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
             : "Just now",
         }));
+
+        const currentUnread = formattedNotifications.filter((n) => !n.read).length;
+
+        // Trigger real-time browser push popup on new unread item
+        if (currentUnread > lastUnreadCount && lastUnreadCount !== 0) {
+          if ("Notification" in window && Notification.permission === "granted") {
+            new Notification(formattedNotifications[0]?.title || "New Notification", {
+              body: formattedNotifications[0]?.message || "",
+              icon: "/favicon.ico",
+            });
+          }
+        }
+
+        setLastUnreadCount(currentUnread);
         setNotifications(formattedNotifications);
       }
     } catch (e) {
       console.error("Failed to fetch real-time notifications:", e);
     }
-  }, []);
+  }, [lastUnreadCount]);
 
-  // ⏱️ Real-Time Polling & Syncing Effect
   useEffect(() => {
     fetchNotifications();
-    
-    // Auto-poll notifications every 10 seconds for real-time updates
-    const interval = setInterval(fetchNotifications, 10000);
+    const interval = setInterval(fetchNotifications, 4000);
     return () => clearInterval(interval);
   }, [fetchNotifications]);
 
-  // Mark all notifications as read in State & Backend DB
   const handleMarkAllRead = async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setLastUnreadCount(0);
 
     try {
       const storedUser = localStorage.getItem("user");
@@ -87,7 +99,6 @@ export default function Navbar() {
 
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
 
-  // Check logged in user state and cart/wishlist counters
   useEffect(() => {
     const checkUser = () => {
       try {
@@ -126,12 +137,10 @@ export default function Navbar() {
       }
     };
 
-    // Initial check
     checkUser();
     updateCartCount();
     updateWishlistCount();
 
-    // Event listeners
     window.addEventListener("storage", updateCartCount);
     window.addEventListener("cart-updated", updateCartCount);
     window.addEventListener("cartUpdated", updateCartCount);
@@ -174,7 +183,6 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full">
-      {/* 🌟 Top Announcement Bar with Dismiss / Close Feature */}
       {showBanner && (
         <div className="relative bg-gradient-to-r from-violet-600 via-indigo-600 to-sky-500 py-1.5 px-8 sm:px-10 text-center text-[10px] xs:text-xs font-semibold text-white shadow-inner flex items-center justify-center gap-1.5 sm:gap-2">
           <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 animate-pulse text-yellow-300 shrink-0" />
@@ -182,7 +190,6 @@ export default function Navbar() {
             Special Offer: Enjoy Free Express Shipping on all orders above $50!
           </span>
 
-          {/* Dismiss Button */}
           <button
             onClick={() => setShowBanner(false)}
             aria-label="Dismiss Offer"
@@ -196,7 +203,6 @@ export default function Navbar() {
       <nav className="w-full border-b border-slate-100 bg-white/80 backdrop-blur-md transition-all duration-300 shadow-sm">
         <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between gap-2">
-            {/* 🚀 Brand Logo */}
             <div className="flex-shrink-0">
               <Link href="/" className="flex items-center gap-1.5 sm:gap-2 group">
                 <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white font-bold text-lg sm:text-xl shadow-md shadow-indigo-200 group-hover:scale-105 transition-transform duration-200">
@@ -208,7 +214,6 @@ export default function Navbar() {
               </Link>
             </div>
 
-            {/* 📍 Desktop Nav Links */}
             <div className="hidden md:flex space-x-6 lg:space-x-8">
               {["Shop", "Categories", "Deals", "Contact"].map((item) => (
                 <Link
@@ -222,9 +227,7 @@ export default function Navbar() {
               ))}
             </div>
 
-            {/* 🛒 Icons & Profile Section */}
             <div className="flex items-center space-x-1 sm:space-x-2 lg:space-x-3">
-              {/* 🔔 Notification Button */}
               <button
                 onClick={() => setIsNotificationOpen(true)}
                 className="relative p-2 sm:p-2.5 text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/70 rounded-xl transition-all duration-200 active:scale-95"
@@ -238,7 +241,6 @@ export default function Navbar() {
                 )}
               </button>
 
-              {/* ❤️ Wishlist Button */}
               <Link
                 href="/wishlist"
                 className="relative p-2 sm:p-2.5 text-slate-700 hover:text-rose-600 hover:bg-rose-50/70 rounded-xl transition-all duration-200 active:scale-95"
@@ -252,7 +254,6 @@ export default function Navbar() {
                 )}
               </Link>
 
-              {/* 🛒 Cart Button */}
               <Link
                 href="/cart"
                 className="relative p-2 sm:p-2.5 text-slate-700 hover:text-indigo-600 hover:bg-indigo-50/70 rounded-xl transition-all duration-200 active:scale-95"
@@ -266,7 +267,6 @@ export default function Navbar() {
                 )}
               </Link>
 
-              {/* 👤 User Profile or Login */}
               {user ? (
                 <div className="relative">
                   <button
@@ -286,7 +286,6 @@ export default function Navbar() {
                     <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 shrink-0" />
                   </button>
 
-                  {/* Dropdown Menu */}
                   {showDropdown && (
                     <div className="absolute right-0 mt-2 w-52 bg-white border border-slate-100 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                       <div className="px-4 py-2 border-b border-slate-100">
@@ -298,7 +297,6 @@ export default function Navbar() {
                         </p>
                       </div>
 
-                      {/* 👤 Profile Link */}
                       <Link
                         href="/profile"
                         onClick={() => setShowDropdown(false)}
@@ -307,7 +305,6 @@ export default function Navbar() {
                         <UserCheck className="w-4 h-4 text-indigo-600" /> My Profile
                       </Link>
 
-                      {/* 📦 MY ORDERS LINK */}
                       <Link
                         href="/orders"
                         onClick={() => setShowDropdown(false)}
@@ -335,7 +332,6 @@ export default function Navbar() {
                 </Link>
               )}
 
-              {/* Mobile Menu Toggle */}
               <button
                 onClick={() => setIsOpen(!isOpen)}
                 className="inline-flex items-center justify-center p-2 text-slate-700 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl md:hidden focus:outline-none transition-colors"
@@ -347,7 +343,6 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* 📱 Mobile Menu Dropdown */}
         {isOpen && (
           <div className="md:hidden border-b border-slate-100 bg-white/95 backdrop-blur-lg px-4 pt-3 pb-5 space-y-1.5 shadow-xl transition-all duration-300">
             {["Shop", "Categories", "Deals", "Contact"].map((item) => (
@@ -376,7 +371,6 @@ export default function Navbar() {
               )}
             </Link>
 
-            {/* Mobile Profile / Auth Button */}
             <div className="pt-2 border-t border-slate-100">
               {user ? (
                 <div className="space-y-2">
@@ -392,7 +386,6 @@ export default function Navbar() {
                     <p className="text-xs text-indigo-600/80 truncate">{user.email}</p>
                   </Link>
 
-                  {/* 📦 Mobile My Orders */}
                   <Link
                     href="/orders"
                     onClick={() => setIsOpen(false)}
@@ -425,7 +418,6 @@ export default function Navbar() {
         )}
       </nav>
 
-      {/* 🔔 Notification Drawer Component Render */}
       <NotificationDrawer
         isOpen={isNotificationOpen}
         onClose={() => setIsNotificationOpen(false)}
