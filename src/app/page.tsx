@@ -16,10 +16,29 @@ export default function Home() {
   const [maxPrice, setMaxPrice] = useState(500);
   const [sortBy, setSortBy] = useState('featured');
 
-  // Local state for Cart items
   const [cart, setCart] = useState<any[]>([]);
 
-  // Smart Dynamic Image Extractor
+  // Local Storage & Live Cart Sync
+  useEffect(() => {
+    const syncCart = () => {
+      try {
+        const savedCart = JSON.parse(localStorage.getItem('cart') || '[]');
+        setCart(savedCart);
+      } catch (e) {
+        console.error("Cart sync error:", e);
+      }
+    };
+
+    syncCart();
+    window.addEventListener('cart-updated', syncCart);
+    window.addEventListener('storage', syncCart);
+
+    return () => {
+      window.removeEventListener('cart-updated', syncCart);
+      window.removeEventListener('storage', syncCart);
+    };
+  }, []);
+
   const getProductImage = (product: any) => {
     const img = product?.image;
     const name = product?.name?.toLowerCase() || '';
@@ -27,7 +46,6 @@ export default function Home() {
     if (typeof img === 'string' && img.startsWith('http') && !img.includes('placeholder')) {
       return img;
     }
-    
     if (Array.isArray(img) && img.length > 0 && typeof img[0] === 'string' && img[0].startsWith('http')) {
       return img[0];
     }
@@ -56,7 +74,21 @@ export default function Home() {
         const data = await res.json();
         if (res.ok) {
           const list = Array.isArray(data) ? data : data.products || [];
-          setProducts(list);
+          
+          // Local stock adjust logic based on cart items
+          const savedCart = JSON.parse(localStorage.getItem('cart') || '[]');
+          const adjustedProducts = list.map((p: any) => {
+            const pId = p._id || p.id;
+            const inCartItem = savedCart.find((c: any) => (c._id || c.id) === pId);
+            const cartQty = inCartItem ? (inCartItem.quantity || 1) : 0;
+            const currentStock = p.stock !== undefined ? p.stock : 10;
+            return {
+              ...p,
+              stock: Math.max(0, currentStock - cartQty)
+            };
+          });
+
+          setProducts(adjustedProducts);
         }
       } catch (err) {
         console.error('Error fetching home products:', err);
@@ -83,18 +115,58 @@ export default function Home() {
     );
   };
 
+  // Home page Add to Cart + Live Stock Reduction
   const handleCartToggle = (e: React.MouseEvent, product: any) => {
     e.preventDefault();
     e.stopPropagation();
 
     const productId = product._id || product.id;
-    const isInCart = cart.some((item) => (item._id || item.id) === productId);
+    const existingCart = JSON.parse(localStorage.getItem('cart') || '[]');
+    const itemIndex = existingCart.findIndex((item: any) => (item._id || item.id) === productId);
 
-    if (isInCart) {
-      setCart((prev) => prev.filter((item) => (item._id || item.id) !== productId));
+    let updatedCart = [...existingCart];
+    let stockChange = 0;
+
+    if (itemIndex > -1) {
+      // If already in cart, remove it and restore stock
+      const removedItem = updatedCart[itemIndex];
+      stockChange = removedItem.quantity || 1;
+      updatedCart.splice(itemIndex, 1);
     } else {
-      setCart((prev) => [...prev, product]);
+      // Add to cart and reduce stock by 1
+      if ((product.stock ?? 10) <= 0) {
+        alert("Sorry, product out of stock!");
+        return;
+      }
+      stockChange = -1;
+      const imgSrc = getProductImage(product);
+      updatedCart.push({
+        _id: productId,
+        id: productId,
+        name: product.name,
+        price: product.price,
+        image: imgSrc,
+        quantity: 1,
+      });
     }
+
+    // Live Stock Update in UI State
+    setProducts((prevProducts) =>
+      prevProducts.map((p) => {
+        if ((p._id || p.id) === productId) {
+          const newStock = Math.max(0, (p.stock ?? 10) + stockChange);
+          return { ...p, stock: newStock };
+        }
+        return p;
+      })
+    );
+
+    localStorage.setItem('cart', JSON.stringify(updatedCart));
+    setCart(updatedCart);
+
+    // Notify other components
+    window.dispatchEvent(new Event('cart-updated'));
+    window.dispatchEvent(new Event('storage'));
   };
 
   const filteredProducts = useMemo(() => {
@@ -124,7 +196,7 @@ export default function Home() {
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <Hero />
 
-      {/* Free Shipping & Policy Banner */}
+      {/* Shipping Info Banner */}
       <section className="bg-white border-y border-slate-200/80 py-8 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="flex items-center gap-4 p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100/60">
@@ -170,7 +242,6 @@ export default function Home() {
       </section>
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
-        {/* Products Section Header */}
         <div className="text-center max-w-2xl mx-auto mb-10 space-y-2">
           <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
             Curated Collection
@@ -179,13 +250,12 @@ export default function Home() {
             Explore Our Premium Products
           </h2>
           <p className="text-sm text-gray-600 leading-relaxed">
-            Discover top-tier crafted items tailored for your everyday style and technological needs, backed by full quality assurance and fast delivery.
+            Discover top-tier crafted items tailored for your everyday style and technological needs.
           </p>
         </div>
 
         <div className="lg:grid lg:grid-cols-4 lg:gap-x-8 lg:items-start">
-          
-          {/* Sidebar Filters */}
+          {/* Filters Sidebar */}
           <div className="hidden lg:block space-y-6 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm sticky top-24">
             <div className="flex justify-between items-center border-b pb-3">
               <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
@@ -249,7 +319,7 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Products Grid */}
+          {/* Product Grid */}
           <div className="lg:col-span-3 space-y-6">
             <div className="flex flex-col sm:flex-row gap-4 justify-between items-center bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
               <input
@@ -287,7 +357,7 @@ export default function Home() {
             </div>
 
             {loading ? (
-              <div className="text-center py-20 text-slate-500 font-medium">Loading Products from Database...</div>
+              <div className="text-center py-20 text-slate-500 font-medium">Loading Products...</div>
             ) : filteredProducts.length === 0 ? (
               <div className="text-center py-24 bg-white rounded-2xl border border-gray-200">
                 <p className="text-gray-500 text-lg">No products found matching your search.</p>
@@ -302,7 +372,7 @@ export default function Home() {
 
                   return (
                     <div key={productId} className="group relative bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between">
-                      <div className="relative">
+                      <div>
                         <div className="w-full h-64 bg-gray-100 relative overflow-hidden flex items-center justify-center">
                           <img
                             src={imgSrc}
@@ -325,7 +395,7 @@ export default function Home() {
 
                           <div className="flex items-center space-x-1.5">
                             <span className="text-yellow-400 text-sm">★</span>
-                            <span className="text-xs font-semibold text-gray-700">{product.rating || 5.0}</span>
+                            <span className="text-xs font-semibold text-gray-700">{Number(product.rating || 5).toFixed(1)}</span>
                             <span className="text-xs text-gray-400">({product.reviewsCount || 0})</span>
                           </div>
 
@@ -333,23 +403,25 @@ export default function Home() {
                         </div>
                       </div>
 
-                      {/* Card Footer with Toggle Add to Cart */}
                       <div className="p-5 pt-0 mt-auto">
                         <div className="flex justify-between items-center pt-2 border-t border-gray-100">
                           <div>
                             <span className="text-lg font-black text-gray-900">${product.price}</span>
-                            <div className="text-[10px] font-medium text-emerald-600">
-                              In Stock ({product.stock ?? 10})
+                            <div className={`text-[10px] font-bold ${product.stock > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                              {product.stock > 0 ? `Stock: ${product.stock}` : 'Out of Stock'}
                             </div>
                           </div>
 
-                          {/* Add to Cart Toggle Button */}
                           <button
+                            type="button"
                             onClick={(e) => handleCartToggle(e, product)}
-                            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+                            disabled={product.stock <= 0 && !isInCart}
+                            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 z-10 cursor-pointer ${
                               isInCart
                                 ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-700'
-                                : 'bg-slate-900 text-white hover:bg-indigo-600 shadow-sm'
+                                : product.stock <= 0
+                                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                : 'bg-slate-900 text-white hover:bg-indigo-600 shadow-sm active:scale-95'
                             }`}
                           >
                             {isInCart ? (
@@ -370,7 +442,6 @@ export default function Home() {
               </div>
             )}
           </div>
-
         </div>
 
         <Newsletter />

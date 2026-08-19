@@ -55,8 +55,20 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
         const res = await fetch(`/api/products/${resolvedParams.id}`);
         const result = await res.json();
 
-        if (res.ok && (result.data || result._id)) {
-          setProduct(result.data || result);
+        if (res.ok && (result.data || result._id || result.id)) {
+          const rawProduct = result.data || result;
+          const productId = rawProduct._id || rawProduct.id;
+
+          // Deduct stock based on items already in cart
+          const existingCart = JSON.parse(localStorage.getItem('cart') || '[]');
+          const cartItem = existingCart.find((i: any) => (i._id || i.id) === productId);
+          const cartQty = cartItem ? (cartItem.quantity || 1) : 0;
+          const initialStock = rawProduct.stock !== undefined ? rawProduct.stock : 10;
+
+          setProduct({
+            ...rawProduct,
+            stock: Math.max(0, initialStock - cartQty),
+          });
         } else {
           setHasError(true);
         }
@@ -103,6 +115,7 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
   const categoryName = typeof product.category === 'object' ? product.category?.name : product.category;
   const productId = product._id || product.id;
   const imgSrc = getProductImage(product);
+  const numericRating = Math.min(5, Math.max(0, Number(product.rating) || 5));
 
   const handleToggleWishlist = () => {
     try {
@@ -136,12 +149,17 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
   };
 
   const handleAddToCart = () => {
+    if (product.stock < quantity) {
+      alert("Selected quantity exceeds available stock!");
+      return;
+    }
+
     try {
       const existingCart = JSON.parse(localStorage.getItem('cart') || '[]');
       const itemIndex = existingCart.findIndex((item: any) => (item._id || item.id) === productId);
 
       if (itemIndex > -1) {
-        existingCart[itemIndex].quantity += quantity;
+        existingCart[itemIndex].quantity = (existingCart[itemIndex].quantity || 1) + quantity;
       } else {
         existingCart.push({
           _id: productId,
@@ -153,11 +171,19 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
         });
       }
 
+      // Live stock minus in current product state
+      setProduct((prev: any) => ({
+        ...prev,
+        stock: prev.stock - quantity,
+      }));
+
       localStorage.setItem('cart', JSON.stringify(existingCart));
+
       window.dispatchEvent(new Event('cart-updated'));
       window.dispatchEvent(new Event('storage'));
 
       setAddedToCart(true);
+      setQuantity(1);
       setTimeout(() => setAddedToCart(false), 2000);
     } catch (error) {
       console.error("Failed to add item to cart:", error);
@@ -167,10 +193,10 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
   return (
     <div className="w-full bg-white text-slate-900 min-h-screen">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 space-y-16">
-        
+
         {/* Breadcrumb Navigation */}
         <nav className="flex text-sm text-slate-500 space-x-2">
-          <Link href="/shop" className="hover:text-indigo-600 transition-colors font-medium">Shop</Link>
+          <Link href="/" className="hover:text-indigo-600 transition-colors font-medium">Home</Link>
           <span>/</span>
           <span className="text-slate-500 font-medium">{categoryName || 'General'}</span>
           <span>/</span>
@@ -179,8 +205,7 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
 
         {/* Product Grid Layout */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
-          
-          {/* Product Image Container */}
+
           <div className="bg-slate-50 rounded-3xl overflow-hidden border border-slate-200/80 flex items-center justify-center min-h-[350px] max-h-[500px] shadow-sm relative group">
             <img
               src={imgSrc}
@@ -189,10 +214,8 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
             />
           </div>
 
-          {/* Details */}
           <div className="flex flex-col justify-between py-2 space-y-6">
             <div className="space-y-4">
-              
               {categoryName && (
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-600 uppercase tracking-wider border border-indigo-100">
                   {categoryName}
@@ -205,10 +228,10 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
 
               <div className="flex items-center space-x-3">
                 <div className="flex items-center text-amber-400 text-lg">
-                  {"★".repeat(Math.round(product.rating || 5))}
-                  {"☆".repeat(5 - Math.round(product.rating || 5))}
+                  {"★".repeat(Math.round(numericRating))}
+                  {"☆".repeat(5 - Math.round(numericRating))}
                 </div>
-                <span className="text-sm font-bold text-slate-800">{product.rating || 5.0} / 5.0</span>
+                <span className="text-sm font-bold text-slate-800">{numericRating.toFixed(1)} / 5.0</span>
                 <span className="text-slate-300">|</span>
                 <span className="text-sm text-slate-500">{product.reviewsCount || 0} customer reviews</span>
               </div>
@@ -225,13 +248,13 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
 
             <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200/70 space-y-4 shadow-sm">
               <div className="flex justify-between items-center text-sm">
-                <span className="text-slate-500 font-medium">Status</span>
-                <span className={`font-bold ${(product.stock ?? 1) > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
-                  {(product.stock ?? 1) > 0 ? `In Stock (${product.stock ?? 'Available'})` : 'Out of Stock'}
+                <span className="text-slate-500 font-medium">Status / Stock</span>
+                <span className={`font-bold ${product.stock > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                  {product.stock > 0 ? `In Stock (${product.stock} left)` : 'Out of Stock'}
                 </span>
               </div>
 
-              {(product.stock ?? 1) > 0 && (
+              {product.stock > 0 && (
                 <div className="flex justify-between items-center text-sm border-t border-slate-200/60 pt-4">
                   <span className="text-slate-500 font-medium">Quantity</span>
                   <div className="flex items-center border border-slate-300 rounded-xl overflow-hidden bg-white shadow-sm">
@@ -243,7 +266,7 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
                     </button>
                     <span className="px-4 py-1 text-sm font-bold w-12 text-center text-slate-900 select-none">{quantity}</span>
                     <button
-                      onClick={() => setQuantity((prev) => Math.min(product.stock || 99, prev + 1))}
+                      onClick={() => setQuantity((prev) => Math.min(product.stock, prev + 1))}
                       className="px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 transition font-bold text-slate-700"
                     >
                       +
@@ -253,7 +276,7 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
               )}
 
               <div className="pt-2 flex items-center gap-3">
-                {(product.stock ?? 1) > 0 ? (
+                {product.stock > 0 ? (
                   <button
                     onClick={handleAddToCart}
                     className={`flex-1 flex items-center justify-center px-6 py-3.5 rounded-xl text-sm font-bold text-white shadow-md transition-all duration-300 active:scale-[0.98] ${
@@ -269,7 +292,7 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
                     disabled
                     className="flex-1 flex items-center justify-center px-6 py-3.5 rounded-xl text-sm font-bold bg-slate-200 text-slate-400 cursor-not-allowed"
                   >
-                    Temporarily Out of Stock
+                    Out of Stock
                   </button>
                 )}
 
@@ -290,7 +313,6 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
           </div>
         </div>
 
-        {/* ⭐️ Reviews & Ratings Section */}
         <div className="pt-8 border-t border-slate-200">
           <ProductReviews productId={productId} />
         </div>
