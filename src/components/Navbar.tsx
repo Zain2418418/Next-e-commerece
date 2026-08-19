@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Menu,
@@ -21,7 +21,7 @@ export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
-  const [user, setUser] = useState<{ name?: string; email?: string } | null>(null);
+  const [user, setUser] = useState<{ _id?: string; name?: string; email?: string } | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
 
   // 🌟 Announcement Banner Dismiss State
@@ -29,26 +29,60 @@ export default function Navbar() {
 
   // 🔔 Dynamic User Notifications State
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([
-    {
-      id: "1",
-      title: "Welcome to E-Store!",
-      message: "Check out our latest arrivals and discounts.",
-      timestamp: "Just now",
-      read: false,
-    },
-    {
-      id: "2",
-      title: "Special Offer",
-      message: "Enjoy free shipping on all orders above $50!",
-      timestamp: "1h ago",
-      read: false,
-    },
-  ]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
-  // Mark all notifications as read
-  const handleMarkAllRead = () => {
+  // 🔄 Real-Time Database Fetch Function
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const storedUser = localStorage.getItem("user");
+      const userId = storedUser ? JSON.parse(storedUser)._id : null;
+      
+      const res = await fetch(`/api/notifications?userId=${userId || ""}`);
+      const data = await res.json();
+
+      if (data.success && Array.isArray(data.notifications)) {
+        const formattedNotifications: NotificationItem[] = data.notifications.map((n: any) => ({
+          id: n._id,
+          title: n.title,
+          message: n.message,
+          type: n.type || "info",
+          read: n.read || false,
+          timestamp: n.createdAt
+            ? new Date(n.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            : "Just now",
+        }));
+        setNotifications(formattedNotifications);
+      }
+    } catch (e) {
+      console.error("Failed to fetch real-time notifications:", e);
+    }
+  }, []);
+
+  // ⏱️ Real-Time Polling & Syncing Effect
+  useEffect(() => {
+    fetchNotifications();
+    
+    // Auto-poll notifications every 10 seconds for real-time updates
+    const interval = setInterval(fetchNotifications, 10000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
+
+  // Mark all notifications as read in State & Backend DB
+  const handleMarkAllRead = async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+
+    try {
+      const storedUser = localStorage.getItem("user");
+      const userId = storedUser ? JSON.parse(storedUser)._id : null;
+
+      await fetch("/api/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+    } catch (e) {
+      console.error("Failed to mark notifications as read on server:", e);
+    }
   };
 
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
@@ -273,7 +307,7 @@ export default function Navbar() {
                         <UserCheck className="w-4 h-4 text-indigo-600" /> My Profile
                       </Link>
 
-                      {/* 📦 MY ORDERS LINK ADDED */}
+                      {/* 📦 MY ORDERS LINK */}
                       <Link
                         href="/orders"
                         onClick={() => setShowDropdown(false)}
