@@ -9,7 +9,6 @@ interface Review {
   userEmail?: string;
   rating: number;
   comment: string;
-  status: 'pending' | 'approved' | 'rejected';
   createdAt?: string;
 }
 
@@ -22,7 +21,7 @@ export default function ProductReviews({ productId }: { productId: string }) {
   const [fetching, setFetching] = useState(true);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  // 🔄 Fetch Approved Reviews for Product Page
+  // 🔄 Fetch Reviews directly for Product Page
   const fetchReviews = async () => {
     try {
       setFetching(true);
@@ -45,7 +44,7 @@ export default function ProductReviews({ productId }: { productId: string }) {
     }
   }, [productId]);
 
-  // 📝 Submit Review to Database
+  // 📝 Submit Review
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!comment.trim()) {
@@ -57,8 +56,8 @@ export default function ProductReviews({ productId }: { productId: string }) {
       setLoading(true);
       setMessage(null);
 
-      // Extract Logged-In User Details from Local Storage
-      const storedUser = localStorage.getItem('user') || localStorage.getItem('authUser') || localStorage.getItem('nextauth.message');
+      // Read Logged-In User Details from Local Storage
+      const storedUser = localStorage.getItem('user') || localStorage.getItem('authUser');
       let parsedUser: any = null;
       
       try {
@@ -88,11 +87,12 @@ export default function ProductReviews({ productId }: { productId: string }) {
 
       if (res.ok && data.success) {
         setMessage({
-          text: 'Review submitted! It is currently pending admin approval.',
+          text: 'Thank you! Your review has been published.',
           type: 'success',
         });
         setComment('');
         setRating(5);
+        fetchReviews(); // Instantly update review list on UI
       } else {
         setMessage({
           text: data.message || 'Failed to submit review.',
@@ -188,12 +188,12 @@ export default function ProductReviews({ productId }: { productId: string }) {
         </form>
       </div>
 
-      {/* Approved Reviews List */}
+      {/* Reviews List */}
       <div className="space-y-4">
         {fetching ? (
           <p className="text-sm text-gray-500">Loading reviews...</p>
         ) : reviews.length === 0 ? (
-          <p className="text-sm text-gray-500 italic">No approved reviews yet. Be the first to review!</p>
+          <p className="text-sm text-gray-500 italic">No reviews yet. Be the first to review!</p>
         ) : (
           reviews.map((rev) => (
             <div key={rev._id} className="p-4 rounded-xl border border-gray-800 space-y-2 bg-gray-900/40">

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import dbconnect from "@/lib/dbConnect";
 import Review from "@/models/Review";
 
-// 1. GET: Fetch ONLY APPROVED reviews for Product Page
+// 1. GET: Fetch ALL reviews for Product Page directly
 export async function GET(req: Request) {
   try {
     await dbconnect();
@@ -13,11 +13,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: false, message: "Product ID is required" }, { status: 400 });
     }
 
-    // Fetch reviews that are APPROVED
-    const reviews = await Review.find({ 
-      productId, 
-      status: 'approved'
-    }).sort({ createdAt: -1 });
+    // Directly fetch all reviews for this product
+    const reviews = await Review.find({ productId }).sort({ createdAt: -1 });
 
     const total = reviews.length;
     const avgRating = total > 0 ? (reviews.reduce((acc, item) => item.rating + acc, 0) / total).toFixed(1) : 0;
@@ -34,7 +31,7 @@ export async function GET(req: Request) {
   }
 }
 
-// 2. POST: Add a new review
+// 2. POST: Add a new review directly as APPROVED
 export async function POST(req: Request) {
   try {
     await dbconnect();
@@ -49,18 +46,25 @@ export async function POST(req: Request) {
       productId,
       userId: userId || 'guest_user',
       userName: userName || "Anonymous User",
-      userEmail: userEmail && userEmail !== '' ? userEmail : "zainulabedeen2418@gmail.com", // Fallback to active account if not provided
+      userEmail: userEmail || "zainulabedeen2418@gmail.com",
       rating: Number(rating),
       comment,
-      status: 'pending',
+      status: 'approved', // Directly publish without pending status
     });
 
     return NextResponse.json({ 
       success: true, 
       review: newReview, 
-      message: "Review submitted successfully! Pending approval." 
+      message: "Thank you! Your review has been published." 
     }, { status: 201 });
   } catch (error: any) {
+    // Handling Duplicate Review Clean Error Message
+    if (error.code === 11000 || error.message?.includes('duplicate key')) {
+      return NextResponse.json({ 
+        success: false, 
+        message: "You have already submitted a review for this product." 
+      }, { status: 400 });
+    }
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
   }
 }
