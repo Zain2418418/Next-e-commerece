@@ -7,7 +7,28 @@ export default function ShopPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [addingId, setAddingId] = useState<string | null>(null);
+  const [cart, setCart] = useState<any[]>([]);
+
+  // Sync Cart State with localStorage
+  useEffect(() => {
+    const syncCart = () => {
+      try {
+        const savedCart = JSON.parse(localStorage.getItem('cart') || '[]');
+        setCart(savedCart);
+      } catch (e) {
+        console.error('Cart sync error:', e);
+      }
+    };
+
+    syncCart();
+    window.addEventListener('cart-updated', syncCart);
+    window.addEventListener('storage', syncCart);
+
+    return () => {
+      window.removeEventListener('cart-updated', syncCart);
+      window.removeEventListener('storage', syncCart);
+    };
+  }, []);
 
   const getProductImage = (product: any) => {
     const img = product?.image;
@@ -45,7 +66,21 @@ export default function ShopPage() {
 
       if (res.ok) {
         const productList = Array.isArray(data) ? data : data.products || [];
-        setProducts(productList);
+
+        // Adjust initial stock based on items already in cart
+        const savedCart = JSON.parse(localStorage.getItem('cart') || '[]');
+        const adjustedProducts = productList.map((p: any) => {
+          const pId = p._id || p.id;
+          const inCartItem = savedCart.find((c: any) => (c._id || c.id) === pId);
+          const cartQty = inCartItem ? (inCartItem.quantity || 1) : 0;
+          const currentStock = p.stock !== undefined ? p.stock : 10;
+          return {
+            ...p,
+            stock: Math.max(0, currentStock - cartQty),
+          };
+        });
+
+        setProducts(adjustedProducts);
       } else {
         setError(data.error || 'Failed to load products');
       }
@@ -61,39 +96,58 @@ export default function ShopPage() {
     fetchShopProducts();
   }, []);
 
-  // Direct Backend API Cart Handler
-  const handleAddToCart = async (e: React.MouseEvent, product: any) => {
+  // Client-Side Cart Toggle + Live Stock Reduction (Fixes Unauthorized Issue)
+  const handleAddToCart = (e: React.MouseEvent, product: any) => {
     e.preventDefault();   // Link navigation roknay k liye
     e.stopPropagation();  // Event bubbling roknay k liye
 
     const productId = product._id || product.id;
+    const existingCart = JSON.parse(localStorage.getItem('cart') || '[]');
+    const itemIndex = existingCart.findIndex((item: any) => (item._id || item.id) === productId);
 
-    try {
-      setAddingId(productId);
-      const res = await fetch('/api/cart', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          productId: productId,
-          quantity: 1,
-        }),
-      });
+    let updatedCart = [...existingCart];
+    let stockChange = 0;
 
-      const data = await res.json();
-
-      if (res.ok) {
-        alert('Product added to cart successfully!');
-      } else {
-        alert(data.message || data.error || 'Failed to add product to cart');
+    if (itemIndex > -1) {
+      // If already in cart, remove it (Toggle action)
+      const removedItem = updatedCart[itemIndex];
+      stockChange = removedItem.quantity || 1;
+      updatedCart.splice(itemIndex, 1);
+    } else {
+      // Add to cart if stock is available
+      if ((product.stock ?? 10) <= 0) {
+        alert('Product is out of stock!');
+        return;
       }
-    } catch (err) {
-      console.error('Error adding product to cart:', err);
-      alert('Error connecting to cart API');
-    } finally {
-      setAddingId(null);
+      stockChange = -1;
+      const imgSrc = getProductImage(product);
+      updatedCart.push({
+        _id: productId,
+        id: productId,
+        name: product.name,
+        price: product.price,
+        image: imgSrc,
+        quantity: 1,
+      });
     }
+
+    // Update Live Stock UI
+    setProducts((prevProducts) =>
+      prevProducts.map((p) => {
+        if ((p._id || p.id) === productId) {
+          const newStock = Math.max(0, (p.stock ?? 10) + stockChange);
+          return { ...p, stock: newStock };
+        }
+        return p;
+      })
+    );
+
+    // Save & Trigger App-wide Sync
+    localStorage.setItem('cart', JSON.stringify(updatedCart));
+    setCart(updatedCart);
+
+    window.dispatchEvent(new Event('cart-updated'));
+    window.dispatchEvent(new Event('storage'));
   };
 
   if (loading) {
@@ -143,7 +197,7 @@ export default function ShopPage() {
               const productId = product._id || product.id;
               const categoryName = typeof product.category === 'object' ? product.category?.name : product.category;
               const imgSrc = getProductImage(product);
-              const isAdding = addingId === productId;
+              const isInCart = cart.some((item) => (item._id || item.id) === productId);
 
               return (
                 <Link 
@@ -181,25 +235,31 @@ export default function ShopPage() {
                       <span className={`text-[10px] font-bold ${
                         (product.stock ?? 1) > 0 ? 'text-emerald-600' : 'text-rose-500'
                       }`}>
-                        {(product.stock ?? 1) > 0 ? `In Stock (${product.stock ?? 'Yes'})` : 'Out of Stock'}
+                        {(product.stock ?? 1) > 0 ? `In Stock (${product.stock})` : 'Out of Stock'}
                       </span>
                     </div>
 
                     {/* ADD TO CART BUTTON */}
                     <button
                       type="button"
-                      disabled={isAdding}
+                      disabled={product.stock <= 0 && !isInCart}
                       onClick={(e) => handleAddToCart(e, product)}
-                      className="bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"
+                      className={`text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer ${
+                        isInCart
+                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                          : product.stock <= 0
+                          ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                          : 'bg-slate-900 hover:bg-indigo-600 text-white'
+                      }`}
                     >
-                      {isAdding ? (
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      ) : (
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {isInCart ? (
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        ) : (
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                        </svg>
-                      )}
-                      {isAdding ? 'Adding...' : 'Add'}
+                        )}
+                      </svg>
+                      {isInCart ? 'Added' : 'Add'}
                     </button>
                   </div>
                 </Link>
