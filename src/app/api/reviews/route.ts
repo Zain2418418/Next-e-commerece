@@ -13,22 +13,28 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: false, message: "Product ID is required" }, { status: 400 });
     }
 
-    // Only fetch reviews that are APPROVED by admin
+    // Fetch reviews that are APPROVED
     const reviews = await Review.find({ 
       productId, 
-      $or: [{ status: 'approved' }, { status: { $exists: false } }] 
+      status: 'approved'
     }).sort({ createdAt: -1 });
 
     const total = reviews.length;
     const avgRating = total > 0 ? (reviews.reduce((acc, item) => item.rating + acc, 0) / total).toFixed(1) : 0;
 
-    return NextResponse.json({ success: true, reviews, data: reviews, avgRating: Number(avgRating), totalReviews: total });
+    return NextResponse.json({ 
+      success: true, 
+      reviews, 
+      data: reviews, 
+      avgRating: Number(avgRating), 
+      totalReviews: total 
+    });
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
   }
 }
 
-// 2. POST: Add a new review with status = 'pending'
+// 2. POST: Add a new review
 export async function POST(req: Request) {
   try {
     await dbconnect();
@@ -43,10 +49,10 @@ export async function POST(req: Request) {
       productId,
       userId: userId || 'guest_user',
       userName: userName || "Anonymous User",
-      userEmail: userEmail || "guest@estore.com",
+      userEmail: userEmail && userEmail !== '' ? userEmail : "zainulabedeen2418@gmail.com", // Fallback to active account if not provided
       rating: Number(rating),
       comment,
-      status: 'pending', // Pending Admin Moderation
+      status: 'pending',
     });
 
     return NextResponse.json({ 
@@ -55,9 +61,6 @@ export async function POST(req: Request) {
       message: "Review submitted successfully! Pending approval." 
     }, { status: 201 });
   } catch (error: any) {
-    if (error.code === 11000) {
-      return NextResponse.json({ success: false, message: "You have already reviewed this product." }, { status: 400 });
-    }
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
   }
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Star, MessageSquare, CheckCircle, AlertCircle } from 'lucide-react';
+import { Star, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface Review {
   _id?: string;
@@ -29,7 +29,8 @@ export default function ProductReviews({ productId }: { productId: string }) {
       const res = await fetch(`/api/reviews?productId=${productId}`);
       const data = await res.json();
       if (data.success) {
-        setReviews(data.data || []);
+        const list = data.reviews || data.data || [];
+        setReviews(list);
       }
     } catch (err) {
       console.error('Failed to fetch reviews:', err);
@@ -56,18 +57,26 @@ export default function ProductReviews({ productId }: { productId: string }) {
       setLoading(true);
       setMessage(null);
 
-      // Get current logged-in user from localStorage
-      const storedUser = localStorage.getItem('user') || localStorage.getItem('authUser');
-      const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+      // Extract Logged-In User Details from Local Storage
+      const storedUser = localStorage.getItem('user') || localStorage.getItem('authUser') || localStorage.getItem('nextauth.message');
+      let parsedUser: any = null;
+      
+      try {
+        if (storedUser) parsedUser = JSON.parse(storedUser);
+      } catch (e) {
+        console.error(e);
+      }
 
-      const userName = parsedUser?.name || parsedUser?.displayName || 'Anonymous User';
-      const userEmail = parsedUser?.email || 'guest@estore.com';
+      const userName = parsedUser?.name || parsedUser?.displayName || 'Zain';
+      const userEmail = parsedUser?.email || 'zainulabedeen2418@gmail.com';
+      const userId = parsedUser?.id || parsedUser?._id || 'user_123';
 
       const res = await fetch('/api/reviews', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           productId,
+          userId,
           userName,
           userEmail,
           rating,
@@ -98,23 +107,22 @@ export default function ProductReviews({ productId }: { productId: string }) {
     }
   };
 
-  const approvedReviews = reviews.filter((r) => r.status === 'approved');
   const avgRating =
-    approvedReviews.length > 0
-      ? (approvedReviews.reduce((acc, item) => acc + item.rating, 0) / approvedReviews.length).toFixed(1)
+    reviews.length > 0
+      ? (reviews.reduce((acc, item) => acc + item.rating, 0) / reviews.length).toFixed(1)
       : '0.0';
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 mt-12">
       {/* Header Summary */}
-      <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 pb-6">
+      <div className="flex items-center justify-between border-b border-gray-800 pb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Customer Reviews</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Read real feedback from verified customers</p>
+          <h2 className="text-2xl font-bold text-white">Customer Reviews</h2>
+          <p className="text-sm text-gray-400">Read real feedback from verified customers</p>
         </div>
         <div className="text-right">
-          <div className="text-3xl font-extrabold text-gray-900 dark:text-white">{avgRating}</div>
-          <div className="text-xs text-gray-500">{approvedReviews.length} verified reviews</div>
+          <div className="text-3xl font-extrabold text-white">{avgRating}</div>
+          <div className="text-xs text-gray-400">{reviews.length} verified reviews</div>
         </div>
       </div>
 
@@ -136,7 +144,6 @@ export default function ProductReviews({ productId }: { productId: string }) {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Star Selection */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Rating</label>
             <div className="flex gap-1">
@@ -158,7 +165,6 @@ export default function ProductReviews({ productId }: { productId: string }) {
             </div>
           </div>
 
-          {/* Comment */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
               Your Review
@@ -186,13 +192,13 @@ export default function ProductReviews({ productId }: { productId: string }) {
       <div className="space-y-4">
         {fetching ? (
           <p className="text-sm text-gray-500">Loading reviews...</p>
-        ) : approvedReviews.length === 0 ? (
+        ) : reviews.length === 0 ? (
           <p className="text-sm text-gray-500 italic">No approved reviews yet. Be the first to review!</p>
         ) : (
-          approvedReviews.map((rev) => (
-            <div key={rev._id} className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 space-y-2">
+          reviews.map((rev) => (
+            <div key={rev._id} className="p-4 rounded-xl border border-gray-800 space-y-2 bg-gray-900/40">
               <div className="flex justify-between items-center">
-                <span className="font-bold text-sm text-gray-900 dark:text-white">{rev.userName}</span>
+                <span className="font-bold text-sm text-white">{rev.userName}</span>
                 <span className="text-xs text-gray-400">
                   {rev.createdAt ? new Date(rev.createdAt).toLocaleDateString() : 'Recent'}
                 </span>
@@ -202,11 +208,11 @@ export default function ProductReviews({ productId }: { productId: string }) {
                   <Star
                     key={i}
                     size={14}
-                    className={i < rev.rating ? 'fill-amber-400' : 'text-gray-300 dark:text-gray-700'}
+                    className={i < rev.rating ? 'fill-amber-400' : 'text-gray-700'}
                   />
                 ))}
               </div>
-              <p className="text-sm text-gray-600 dark:text-gray-300">{rev.comment}</p>
+              <p className="text-sm text-gray-300">{rev.comment}</p>
             </div>
           ))
         )}
