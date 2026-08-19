@@ -11,6 +11,7 @@ import {
   ShoppingBag, 
   MessageSquare,
   Mail,
+  Star,
   LogOut,
   Bell,
   ChevronDown,
@@ -154,6 +155,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Order Management', href: '/admin/orders', icon: ShoppingBag },
     { name: 'Live Support Chat', href: '/admin/chat', icon: MessageSquare },
     { name: 'Newsletter', href: '/admin/newsletter', icon: Mail },
+    { name: 'Reviews Management', href: '/admin/reviews', icon: Star },
   ];
 
   return (

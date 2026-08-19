@@ -4,6 +4,7 @@ import React, { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Heart } from 'lucide-react';
+import ProductReviews from '@/components/ProductReviews';
 
 interface ProductPageProps {
   params: Promise<{ id: string }>;
@@ -165,10 +166,10 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
 
   return (
     <div className="w-full bg-white text-slate-900 min-h-screen">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 space-y-16">
         
         {/* Breadcrumb Navigation */}
-        <nav className="flex mb-8 text-sm text-slate-500 space-x-2">
+        <nav className="flex text-sm text-slate-500 space-x-2">
           <Link href="/shop" className="hover:text-indigo-600 transition-colors font-medium">Shop</Link>
           <span>/</span>
           <span className="text-slate-500 font-medium">{categoryName || 'General'}</span>
@@ -176,7 +177,7 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
           <span className="text-slate-900 font-bold truncate max-w-[200px]">{product.name}</span>
         </nav>
 
-        {/* Layout */}
+        {/* Product Grid Layout */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
           
           {/* Product Image Container */}
@@ -288,6 +289,12 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
             </div>
           </div>
         </div>
+
+        {/* ⭐️ Reviews & Ratings Section */}
+        <div className="pt-8 border-t border-slate-200">
+          <ProductReviews productId={productId} />
+        </div>
+
       </div>
     </div>
   );
