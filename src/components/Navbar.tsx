@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
   Menu,
@@ -31,6 +31,10 @@ export default function Navbar() {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [lastUnreadCount, setLastUnreadCount] = useState<number>(0);
+  const isFirstLoad = useRef(true);
+
+  // Live Toast State for guaranteed screen alerts
+  const [activeToast, setActiveToast] = useState<{ title: string; message: string } | null>(null);
 
   // Real-time notification fetch with instant toast trigger
   const fetchNotifications = useCallback(async () => {
@@ -55,14 +59,27 @@ export default function Navbar() {
 
         const currentUnread = formattedNotifications.filter((n) => !n.read).length;
 
-        // Trigger real-time browser push popup on new unread item
-        if (currentUnread > lastUnreadCount && lastUnreadCount !== 0) {
+        // Trigger live notifications (In-App Toast + System Popup)
+        if (!isFirstLoad.current && currentUnread > lastUnreadCount) {
+          // 1. Live Floating Banner Toast (100% Reliable In-App)
+          setActiveToast({
+            title: formattedNotifications[0]?.title || "New Notification",
+            message: formattedNotifications[0]?.message || "",
+          });
+
+          setTimeout(() => setActiveToast(null), 5000);
+
+          // 2. Desktop System Notification
           if ("Notification" in window && Notification.permission === "granted") {
             new Notification(formattedNotifications[0]?.title || "New Notification", {
               body: formattedNotifications[0]?.message || "",
               icon: "/favicon.ico",
             });
           }
+        }
+
+        if (isFirstLoad.current) {
+          isFirstLoad.current = false;
         }
 
         setLastUnreadCount(currentUnread);
@@ -183,6 +200,25 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full">
+      {/* 🔔 LIVE IN-APP FLOATING NOTIFICATION TOAST */}
+      {activeToast && (
+        <div className="fixed top-20 right-5 z-[9999] max-w-sm w-full bg-slate-900 text-white p-4 rounded-2xl shadow-2xl border border-slate-700 animate-in slide-in-from-right duration-300 flex items-start gap-3">
+          <div className="p-2 bg-indigo-600 rounded-xl text-white shrink-0">
+            <Bell className="w-5 h-5" />
+          </div>
+          <div className="flex-1 pr-2">
+            <h4 className="text-sm font-bold text-white">{activeToast.title}</h4>
+            <p className="text-xs text-slate-300 mt-1">{activeToast.message}</p>
+          </div>
+          <button
+            onClick={() => setActiveToast(null)}
+            className="text-slate-400 hover:text-white p-1"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {showBanner && (
         <div className="relative bg-gradient-to-r from-violet-600 via-indigo-600 to-sky-500 py-1.5 px-8 sm:px-10 text-center text-[10px] xs:text-xs font-semibold text-white shadow-inner flex items-center justify-center gap-1.5 sm:gap-2">
           <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 animate-pulse text-yellow-300 shrink-0" />

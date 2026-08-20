@@ -8,10 +8,17 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId");
 
-    // Dynamic filter: user-specific notifications + global notifications
-    const query = userId && userId !== "null"
-      ? { $or: [{ userId }, { userId: null }] }
-      : { userId: null };
+    // Fix query matching logic
+    let query: any = { userId: null };
+
+    if (userId && userId !== "null" && userId !== "undefined") {
+      query = {
+        $or: [
+          { userId: userId },
+          { userId: null }
+        ]
+      };
+    }
 
     const notifications = await Notification.find(query)
       .sort({ createdAt: -1 })
@@ -28,9 +35,16 @@ export async function PATCH(req: Request) {
     await dbConnect();
     const { userId } = await req.json();
 
-    const query = userId && userId !== "null"
-      ? { $or: [{ userId }, { userId: null }] }
-      : { userId: null };
+    let query: any = { userId: null };
+
+    if (userId && userId !== "null" && userId !== "undefined") {
+      query = {
+        $or: [
+          { userId: userId },
+          { userId: null }
+        ]
+      };
+    }
 
     await Notification.updateMany(query, { read: true });
 
