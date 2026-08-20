@@ -3,17 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import {
-  Menu,
-  X,
-  ShoppingBag,
-  User,
-  Sparkles,
-  Heart,
-  LogOut,
-  ChevronDown,
-  Bell,
-  UserCheck,
-  Package,
+  Menu, X, ShoppingBag, User, Sparkles, Heart, LogOut, ChevronDown, Bell, UserCheck, Package
 } from "lucide-react";
 import NotificationDrawer, { NotificationItem } from "./NotificationDrawer";
 
@@ -23,8 +13,6 @@ export default function Navbar() {
   const [wishlistCount, setWishlistCount] = useState(0);
   const [user, setUser] = useState<{ _id?: string; name?: string; email?: string } | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
-
-  // Announcement Banner State
   const [showBanner, setShowBanner] = useState(true);
 
   // Dynamic Notifications State & Tracking
@@ -33,70 +21,69 @@ export default function Navbar() {
   const [lastUnreadCount, setLastUnreadCount] = useState<number>(0);
   const isFirstLoad = useRef(true);
 
-  // Live Toast State for guaranteed screen alerts
+  // Live Toast State for Floating Banner
   const [activeToast, setActiveToast] = useState<{ title: string; message: string } | null>(null);
 
-  // Real-time notification fetch with instant toast trigger
- const fetchNotifications = useCallback(async () => {
-  try {
-    const storedUser = localStorage.getItem("user");
-    const userId = storedUser ? JSON.parse(storedUser)._id : null;
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const storedUser = localStorage.getItem("user");
+      const userId = storedUser ? JSON.parse(storedUser)._id : null;
 
-    // Cache-busting timestamp + no-store header for live Vercel updates
-    const res = await fetch(`/api/notifications?userId=${userId || ""}&_t=${Date.now()}`, {
-      cache: "no-store",
-      headers: {
-        "Pragma": "no-cache",
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-      },
-    });
-    
-    const data = await res.json();
+      const res = await fetch(`/api/notifications?userId=${userId || ""}&_t=${Date.now()}`, {
+        cache: "no-store",
+        headers: {
+          "Pragma": "no-cache",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+      });
+      
+      const data = await res.json();
 
-    if (data.success && Array.isArray(data.notifications)) {
-      const formattedNotifications: NotificationItem[] = data.notifications.map((n: any) => ({
-        id: n._id,
-        title: n.title,
-        message: n.message,
-        type: n.type || "info",
-        read: n.read || false,
-        timestamp: n.createdAt
-          ? new Date(n.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-          : "Just now",
-      }));
+      if (data.success && Array.isArray(data.notifications)) {
+        const formattedNotifications: NotificationItem[] = data.notifications.map((n: any) => ({
+          id: n._id,
+          title: n.title,
+          message: n.message,
+          type: n.type || "info",
+          read: n.read || false,
+          timestamp: n.createdAt
+            ? new Date(n.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            : "Just now",
+        }));
 
-      const currentUnread = formattedNotifications.filter((n) => !n.read).length;
+        const currentUnread = formattedNotifications.filter((n) => !n.read).length;
 
-      // Trigger live notifications (In-App Toast + System Popup)
-      if (!isFirstLoad.current && currentUnread > lastUnreadCount) {
-        // 1. Live Floating Banner Toast
-        setActiveToast({
-          title: formattedNotifications[0]?.title || "New Notification",
-          message: formattedNotifications[0]?.message || "",
-        });
-
-        setTimeout(() => setActiveToast(null), 5000);
-
-        // 2. Desktop System Notification
-        if ("Notification" in window && Notification.permission === "granted") {
-          new Notification(formattedNotifications[0]?.title || "New Notification", {
-            body: formattedNotifications[0]?.message || "",
-            icon: "/favicon.ico",
+        // Trigger Live Popup Toast when new notification arrives
+        if (!isFirstLoad.current && currentUnread > lastUnreadCount) {
+          const newest = formattedNotifications[0];
+          setActiveToast({
+            title: newest?.title || "New Notification",
+            message: newest?.message || "",
           });
+
+          // Floating Toast dismisses after 5s, but item remains saved in list
+          setTimeout(() => setActiveToast(null), 5000);
+
+          if ("Notification" in window && Notification.permission === "granted") {
+            new Notification(newest?.title || "New Notification", {
+              body: newest?.message || "",
+              icon: "/favicon.ico",
+            });
+          }
         }
-      }
 
-      if (isFirstLoad.current) {
-        isFirstLoad.current = false;
-      }
+        if (isFirstLoad.current) {
+          isFirstLoad.current = false;
+        }
 
-      setLastUnreadCount(currentUnread);
-      setNotifications(formattedNotifications);
+        setLastUnreadCount(currentUnread);
+        setNotifications(formattedNotifications);
+      }
+    } catch (e) {
+      console.error("Failed to fetch real-time notifications:", e);
     }
-  } catch (e) {
-    console.error("Failed to fetch real-time notifications:", e);
-  }
-}, [lastUnreadCount]);
+  }, [lastUnreadCount]);
+
   useEffect(() => {
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 4000);
@@ -127,11 +114,7 @@ export default function Navbar() {
     const checkUser = () => {
       try {
         const storedUser = localStorage.getItem("user");
-        if (storedUser) {
-          setUser(JSON.parse(storedUser));
-        } else {
-          setUser(null);
-        }
+        setUser(storedUser ? JSON.parse(storedUser) : null);
       } catch (e) {
         setUser(null);
       }
@@ -140,10 +123,7 @@ export default function Navbar() {
     const updateCartCount = () => {
       try {
         const savedCart = JSON.parse(localStorage.getItem("cart") || "[]");
-        const totalItems = savedCart.reduce(
-          (sum: number, item: any) => sum + (item.quantity || 1),
-          0
-        );
+        const totalItems = savedCart.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0);
         setCartCount(totalItems);
       } catch (e) {
         setCartCount(0);
@@ -152,9 +132,7 @@ export default function Navbar() {
 
     const updateWishlistCount = () => {
       try {
-        const savedWishlist = JSON.parse(
-          localStorage.getItem("wishlist") || "[]"
-        );
+        const savedWishlist = JSON.parse(localStorage.getItem("wishlist") || "[]");
         setWishlistCount(savedWishlist.length);
       } catch (e) {
         setWishlistCount(0);
@@ -168,22 +146,18 @@ export default function Navbar() {
     window.addEventListener("storage", updateCartCount);
     window.addEventListener("cart-updated", updateCartCount);
     window.addEventListener("cartUpdated", updateCartCount);
-
     window.addEventListener("storage", updateWishlistCount);
     window.addEventListener("wishlist-updated", updateWishlistCount);
     window.addEventListener("wishlistUpdated", updateWishlistCount);
-
     window.addEventListener("user-updated", checkUser);
 
     return () => {
       window.removeEventListener("storage", updateCartCount);
       window.removeEventListener("cart-updated", updateCartCount);
       window.removeEventListener("cartUpdated", updateCartCount);
-
       window.removeEventListener("storage", updateWishlistCount);
       window.removeEventListener("wishlist-updated", updateWishlistCount);
       window.removeEventListener("wishlistUpdated", updateWishlistCount);
-
       window.removeEventListener("user-updated", checkUser);
     };
   }, []);
@@ -196,10 +170,8 @@ export default function Navbar() {
     } finally {
       localStorage.removeItem("user");
       localStorage.removeItem("token");
-
       setUser(null);
       setShowDropdown(false);
-
       window.dispatchEvent(new Event("user-updated"));
       window.location.href = "/login";
     }
@@ -207,9 +179,9 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full">
-      {/* 🔔 LIVE IN-APP FLOATING NOTIFICATION TOAST */}
+      {/* 🔔 LIVE FLOATING TOASTER POPUP */}
       {activeToast && (
-        <div className="fixed top-20 right-5 z-[9999] max-w-sm w-full bg-slate-900 text-white p-4 rounded-2xl shadow-2xl border border-slate-700 animate-in slide-in-from-right duration-300 flex items-start gap-3">
+        <div className="fixed top-20 right-5 z-[9999] max-w-sm w-full bg-slate-900 text-white p-4 rounded-2xl shadow-2xl border border-indigo-500/30 flex items-start gap-3 animate-in slide-in-from-right duration-300">
           <div className="p-2 bg-indigo-600 rounded-xl text-white shrink-0">
             <Bell className="w-5 h-5" />
           </div>
@@ -217,10 +189,7 @@ export default function Navbar() {
             <h4 className="text-sm font-bold text-white">{activeToast.title}</h4>
             <p className="text-xs text-slate-300 mt-1">{activeToast.message}</p>
           </div>
-          <button
-            onClick={() => setActiveToast(null)}
-            className="text-slate-400 hover:text-white p-1"
-          >
+          <button onClick={() => setActiveToast(null)} className="text-slate-400 hover:text-white p-1">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -232,7 +201,6 @@ export default function Navbar() {
           <span className="truncate max-w-[300px] xs:max-w-none">
             Special Offer: Enjoy Free Express Shipping on all orders above $50!
           </span>
-
           <button
             onClick={() => setShowBanner(false)}
             aria-label="Dismiss Offer"
@@ -317,11 +285,7 @@ export default function Navbar() {
                     className="flex items-center gap-1.5 p-1 sm:px-3 sm:py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs sm:text-sm font-semibold transition-all"
                   >
                     <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
-                      {user.name ? (
-                        user.name.charAt(0).toUpperCase()
-                      ) : (
-                        <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                      )}
+                      {user.name ? user.name.charAt(0).toUpperCase() : <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
                     </div>
                     <span className="hidden sm:inline max-w-[80px] lg:max-w-[120px] truncate">
                       {user.name || "Account"}
@@ -332,12 +296,8 @@ export default function Navbar() {
                   {showDropdown && (
                     <div className="absolute right-0 mt-2 w-52 bg-white border border-slate-100 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                       <div className="px-4 py-2 border-b border-slate-100">
-                        <p className="text-xs font-bold text-slate-900 truncate">
-                          {user.name}
-                        </p>
-                        <p className="text-[11px] text-slate-500 truncate">
-                          {user.email}
-                        </p>
+                        <p className="text-xs font-bold text-slate-900 truncate">{user.name}</p>
+                        <p className="text-[11px] text-slate-500 truncate">{user.email}</p>
                       </div>
 
                       <Link

@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/dbConnect";
 import Notification from "@/models/Notification";
 
-
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
@@ -12,7 +11,6 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId");
 
-    // Fix query matching logic
     let query: any = { userId: null };
 
     if (userId && userId !== "null" && userId !== "undefined") {
@@ -26,7 +24,7 @@ export async function GET(req: Request) {
 
     const notifications = await Notification.find(query)
       .sort({ createdAt: -1 })
-      .limit(20);
+      .limit(30);
 
     return NextResponse.json({ success: true, notifications });
   } catch (error: any) {

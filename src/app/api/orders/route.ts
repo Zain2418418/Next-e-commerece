@@ -3,10 +3,10 @@ import dbConnect from "@/lib/dbConnect";
 import Order from "@/models/Order";
 import Cart from "@/models/Cart";
 import Product from "@/models/Product";
+import Notification from "@/models/Notification";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 
-// Helper function to extract user ID & Email from Auth Token Cookie
 async function getUserFromToken() {
   try {
     const cookieStore = await cookies();
@@ -29,7 +29,6 @@ async function getUserFromToken() {
   }
 }
 
-// 📦 1. GET: Fetch User Orders
 export async function GET(req: Request) {
   try {
     await dbConnect();
@@ -38,7 +37,6 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const queryEmail = searchParams.get("email");
 
-    // Verified JWT email check karo, agar token nahi milta toh URL parameters waali queryEmail use karo
     const searchEmail = user?.email || queryEmail;
     const userId = user?.userId;
 
@@ -64,7 +62,6 @@ export async function GET(req: Request) {
   }
 }
 
-// 🛒 2. POST: Place New Order (Checkout / COD)
 export async function POST(req: Request) {
   try {
     await dbConnect();
@@ -87,7 +84,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Server-side calculation of total amount to prevent price tampering
     let calculatedTotal = 0;
     const validatedItems = [];
 
@@ -100,7 +96,6 @@ export async function POST(req: Request) {
         );
       }
 
-      // Check stock availability
       if (dbProduct.stock < item.quantity) {
         return NextResponse.json(
           { message: `Insufficient stock for ${dbProduct.name}` },
@@ -118,8 +113,7 @@ export async function POST(req: Request) {
       });
     }
 
-    const resolvedEmail =
-      user?.email || customerEmail || shippingAddress?.email;
+    const resolvedEmail = user?.email || customerEmail || shippingAddress?.email;
     if (!resolvedEmail) {
       return NextResponse.json(
         { message: "Customer email is required" },
@@ -129,7 +123,6 @@ export async function POST(req: Request) {
 
     const isCod = (paymentMethod || "COD").toUpperCase() === "COD";
 
-    // Create Order with server-validated amounts
     const order = await Order.create({
       user: user?.userId || undefined,
       customerEmail: resolvedEmail,
@@ -141,17 +134,37 @@ export async function POST(req: Request) {
       status: "Pending",
     });
 
-    // Deduct inventory for ordered items
+    // Deduct inventory
     for (const item of validatedItems) {
       await Product.findByIdAndUpdate(item.product, {
         $inc: { stock: -item.quantity },
       });
     }
 
-    // Clear DB Cart for authenticated user
+    // Clear DB Cart
     if (user?.userId) {
       await Cart.findOneAndUpdate({ user: user.userId }, { items: [] });
     }
+
+    // 🔔 1. CREATE NOTIFICATION FOR CUSTOMER (User Side)
+    if (user?.userId) {
+      await Notification.create({
+        userId: user.userId,
+        title: "Order Placed Successfully! 🎉",
+        message: `Your order #${order._id.toString().slice(-6)} ($${calculatedTotal}) has been received.`,
+        type: "order",
+        read: false,
+      });
+    }
+
+    // 🔔 2. CREATE NOTIFICATION FOR ADMIN (Admin Side Broadcast)
+    await Notification.create({
+      userId: null,
+      title: "New Order Received! 🛒",
+      message: `New Order #${order._id.toString().slice(-6)} placed by ${resolvedEmail} ($${calculatedTotal}).`,
+      type: "order",
+      read: false,
+    });
 
     return NextResponse.json(
       {
