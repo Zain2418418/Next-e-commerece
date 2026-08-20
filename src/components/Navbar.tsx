@@ -37,59 +37,66 @@ export default function Navbar() {
   const [activeToast, setActiveToast] = useState<{ title: string; message: string } | null>(null);
 
   // Real-time notification fetch with instant toast trigger
-  const fetchNotifications = useCallback(async () => {
-    try {
-      const storedUser = localStorage.getItem("user");
-      const userId = storedUser ? JSON.parse(storedUser)._id : null;
+ const fetchNotifications = useCallback(async () => {
+  try {
+    const storedUser = localStorage.getItem("user");
+    const userId = storedUser ? JSON.parse(storedUser)._id : null;
 
-      const res = await fetch(`/api/notifications?userId=${userId || ""}`);
-      const data = await res.json();
+    // Cache-busting timestamp + no-store header for live Vercel updates
+    const res = await fetch(`/api/notifications?userId=${userId || ""}&_t=${Date.now()}`, {
+      cache: "no-store",
+      headers: {
+        "Pragma": "no-cache",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+      },
+    });
+    
+    const data = await res.json();
 
-      if (data.success && Array.isArray(data.notifications)) {
-        const formattedNotifications: NotificationItem[] = data.notifications.map((n: any) => ({
-          id: n._id,
-          title: n.title,
-          message: n.message,
-          type: n.type || "info",
-          read: n.read || false,
-          timestamp: n.createdAt
-            ? new Date(n.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-            : "Just now",
-        }));
+    if (data.success && Array.isArray(data.notifications)) {
+      const formattedNotifications: NotificationItem[] = data.notifications.map((n: any) => ({
+        id: n._id,
+        title: n.title,
+        message: n.message,
+        type: n.type || "info",
+        read: n.read || false,
+        timestamp: n.createdAt
+          ? new Date(n.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          : "Just now",
+      }));
 
-        const currentUnread = formattedNotifications.filter((n) => !n.read).length;
+      const currentUnread = formattedNotifications.filter((n) => !n.read).length;
 
-        // Trigger live notifications (In-App Toast + System Popup)
-        if (!isFirstLoad.current && currentUnread > lastUnreadCount) {
-          // 1. Live Floating Banner Toast (100% Reliable In-App)
-          setActiveToast({
-            title: formattedNotifications[0]?.title || "New Notification",
-            message: formattedNotifications[0]?.message || "",
+      // Trigger live notifications (In-App Toast + System Popup)
+      if (!isFirstLoad.current && currentUnread > lastUnreadCount) {
+        // 1. Live Floating Banner Toast
+        setActiveToast({
+          title: formattedNotifications[0]?.title || "New Notification",
+          message: formattedNotifications[0]?.message || "",
+        });
+
+        setTimeout(() => setActiveToast(null), 5000);
+
+        // 2. Desktop System Notification
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification(formattedNotifications[0]?.title || "New Notification", {
+            body: formattedNotifications[0]?.message || "",
+            icon: "/favicon.ico",
           });
-
-          setTimeout(() => setActiveToast(null), 5000);
-
-          // 2. Desktop System Notification
-          if ("Notification" in window && Notification.permission === "granted") {
-            new Notification(formattedNotifications[0]?.title || "New Notification", {
-              body: formattedNotifications[0]?.message || "",
-              icon: "/favicon.ico",
-            });
-          }
         }
-
-        if (isFirstLoad.current) {
-          isFirstLoad.current = false;
-        }
-
-        setLastUnreadCount(currentUnread);
-        setNotifications(formattedNotifications);
       }
-    } catch (e) {
-      console.error("Failed to fetch real-time notifications:", e);
-    }
-  }, [lastUnreadCount]);
 
+      if (isFirstLoad.current) {
+        isFirstLoad.current = false;
+      }
+
+      setLastUnreadCount(currentUnread);
+      setNotifications(formattedNotifications);
+    }
+  } catch (e) {
+    console.error("Failed to fetch real-time notifications:", e);
+  }
+}, [lastUnreadCount]);
   useEffect(() => {
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 4000);
