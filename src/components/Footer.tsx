@@ -1,7 +1,17 @@
+"use client";
+
 import React from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 export default function Footer() {
+  const pathname = usePathname();
+
+  // Hide Footer on Auth screens
+  if (["/login", "/signup", "/signin"].includes(pathname)) {
+    return null;
+  }
+
   return (
     <footer className="bg-slate-950 text-slate-300 border-t border-slate-800/80">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">

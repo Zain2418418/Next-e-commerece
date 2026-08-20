@@ -2,12 +2,20 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Menu, X, ShoppingBag, User, Sparkles, Heart, LogOut, ChevronDown, Bell, UserCheck, Package
 } from "lucide-react";
 import NotificationDrawer, { NotificationItem } from "./NotificationDrawer";
 
 export default function Navbar() {
+  const pathname = usePathname();
+
+  // Hide Navbar on Auth screens
+  if (["/login", "/signup", "/signin"].includes(pathname)) {
+    return null;
+  }
+
   const [isOpen, setIsOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
