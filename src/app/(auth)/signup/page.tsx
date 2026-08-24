@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import GoogleAuthBtn from "@/components/GoogleAuthBtn"; // 👈 Google Button Import
 
 export default function SignupPage() {
   const router = useRouter();
@@ -20,7 +21,6 @@ export default function SignupPage() {
     setError("");
     setSuccess("");
 
-    // 🚀 Quick Frontend Validation
     if (!formData.name.trim()) {
       setError("Please enter your full name.");
       return;
@@ -46,7 +46,6 @@ export default function SignupPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        // 🚀 Display exact backend error message instead of generic message
         const errorMessage = data.error || data.message || "Failed to create account. Please try again.";
         throw new Error(errorMessage);
       }
@@ -180,6 +179,21 @@ export default function SignupPage() {
             </button>
           </div>
         </form>
+
+        {/* ── OR Divider ── */}
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-white px-2 text-gray-500">
+              Or continue with
+            </span>
+          </div>
+        </div>
+
+        {/* 🔘 Google Signup Button */}
+        <GoogleAuthBtn text="Sign up with Google" />
       </div>
     </div>
   );

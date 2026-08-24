@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getDatabase } from "firebase/database";
-import { getAuth } from "firebase/auth"; // 👈 Added getAuth
+import { getAuth, GoogleAuthProvider } from "firebase/auth"; // 👈 GoogleAuthProvider added
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
@@ -17,5 +17,6 @@ const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
 // Export Services
 export const db = getDatabase(app);
-export const auth = getAuth(app); // 👈 Exported auth
+export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider(); // 👈 Exported googleProvider
 export default app;

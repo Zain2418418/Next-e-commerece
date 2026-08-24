@@ -3,6 +3,7 @@
 import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import GoogleAuthBtn from "@/components/GoogleAuthBtn"; // 👈 Google Button Import
 
 function LoginForm() {
   const router = useRouter();
@@ -22,7 +23,6 @@ function LoginForm() {
   useEffect(() => {
     const localUser = localStorage.getItem("user");
     if (localUser) {
-      // User logged in hai -> Directly redirect target par bhej do
       router.replace(redirectUrl);
     }
   }, [redirectUrl, router]);
@@ -46,7 +46,6 @@ function LoginForm() {
       if (!res.ok) {
         const errorMsg = data.message || data.error || "Invalid credentials or server error";
         
-        // Check if error is related to unverified email
         if (
           errorMsg.toLowerCase().includes("not verified") || 
           errorMsg.toLowerCase().includes("otp") ||
@@ -58,7 +57,6 @@ function LoginForm() {
         throw new Error(errorMsg);
       }
 
-      // 💾 User save in localStorage for state sync
       if (data.user) {
         localStorage.setItem("user", JSON.stringify(data.user));
         window.dispatchEvent(new Event("user-updated"));
@@ -66,7 +64,6 @@ function LoginForm() {
 
       setSuccess("Login successful! Redirecting...");
 
-      // 🚀 Redirect to target page (Checkout)
       setTimeout(() => {
         window.location.href = redirectUrl;
       }, 300);
@@ -77,7 +74,6 @@ function LoginForm() {
     }
   };
 
-  // 🔴 FIX: Red button click handle with API trigger for fresh OTP
   const handleVerifyClick = async () => {
     const targetEmail = formData.email.trim();
 
@@ -88,7 +84,6 @@ function LoginForm() {
 
     setResendingOtp(true);
     try {
-      // 1. Trigger backend to generate & send NEW OTP email immediately
       await fetch("/api/auth/resend-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -98,7 +93,6 @@ function LoginForm() {
       console.error("Error triggering auto-resend on login button click:", err);
     } finally {
       setResendingOtp(false);
-      // 2. Redirect user to verify page with encoded email
       router.push(`/verify-email?email=${encodeURIComponent(targetEmail)}`);
     }
   };
@@ -125,7 +119,6 @@ function LoginForm() {
           <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700 border border-red-100 space-y-3">
             <p>{error}</p>
 
-            {/* 🟢 Verification Action Link / Button if unverified */}
             {isUnverified && (
               <button
                 type="button"
@@ -208,6 +201,21 @@ function LoginForm() {
             </button>
           </div>
         </form>
+
+        {/* ── OR Divider ── */}
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-white px-2 text-gray-500">
+              Or continue with
+            </span>
+          </div>
+        </div>
+
+        {/* 🔘 Google Login Button */}
+        <GoogleAuthBtn text="Sign in with Google" />
       </div>
     </div>
   );
