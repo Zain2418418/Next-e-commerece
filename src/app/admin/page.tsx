@@ -168,7 +168,7 @@ export default function AdminDashboardPage() {
       <div>
         <h1 className="text-2xl font-bold">Analytics & Dashboard Overview</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Store ki sales, growth aur recent activity insights check karein.
+          Monitor store sales, growth performance, and real-time activity insights.
         </p>
       </div>
 

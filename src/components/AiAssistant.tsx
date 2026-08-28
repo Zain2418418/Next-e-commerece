@@ -139,29 +139,20 @@ export default function AiAssistant() {
 
   return (
     <>
-      {/* 🤖 AI ASSISTANT BUTTON */}
+      {/* 🤖 AI ASSISTANT BUTTON - BOTTOM LEFT WITH PERFECTLY CENTERED ICON */}
       {!isOpen && (
-        <div
-          className="
-            fixed
-            left-1/2
-            bottom-8
-            -translate-x-1/2
-            z-[90]
-          "
-        >
+        <div className="fixed bottom-6 left-6 sm:left-8 z-[90]">
           <button
             onClick={handleOpenClick}
             className="
               group
               relative
               flex
-              h-[58px]
-              w-[58px]
-              hover:w-[160px]
+              h-14
+              w-14
+              hover:w-44
               items-center
               justify-center
-              gap-2
               overflow-hidden
               rounded-full
               bg-gradient-to-r
@@ -170,7 +161,7 @@ export default function AiAssistant() {
               to-indigo-600
               text-white
               shadow-xl
-              shadow-purple-900/40
+              shadow-purple-900/30
               border
               border-purple-400/30
               transition-all
@@ -178,72 +169,53 @@ export default function AiAssistant() {
               ease-out
               hover:scale-105
               active:scale-95
-              px-3
             "
             aria-label="Open AI Assistant"
           >
-            {/* Bot Icon */}
-            <div className="relative flex items-center justify-center shrink-0">
-              <Bot className="w-7 h-7 sm:w-7 sm:h-7" />
-
-              {/* Online Indicator */}
-              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-              </span>
+            {/* 📍 Centered Icon Layer (Normal / Default State) */}
+            <div className="absolute inset-0 flex items-center justify-center group-hover:opacity-0 transition-opacity duration-200">
+              <div className="relative flex items-center justify-center">
+                <Bot className="w-6 h-6 leading-none" />
+                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+              </div>
             </div>
 
-            {/* Text - Only Visible On Hover */}
-            <span
-              className="
-                max-w-0
-                overflow-hidden
-                whitespace-nowrap
-                opacity-0
-                group-hover:max-w-[105px]
-                group-hover:opacity-100
-                transition-all
-                duration-300
-                font-bold
-                text-sm
-                tracking-wide
-              "
-            >
-              AI Assistant
-            </span>
+            {/* 🏷️ Expanded Content Layer (Hover State) */}
+            <div className="flex items-center justify-center w-full px-4 gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              <div className="relative flex items-center justify-center shrink-0">
+                <Bot className="w-5 h-5 leading-none" />
+                <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+              </div>
 
-            {/* Sparkles - Only Visible On Hover */}
-            <Sparkles
-              className="
-                w-4 h-4
-                text-yellow-300
-                shrink-0
-                opacity-0
-                group-hover:opacity-100
-                transition-opacity
-                duration-200
-              "
-            />
+              <span className="whitespace-nowrap font-bold text-sm tracking-wide">
+                AI Assistant
+              </span>
+
+              <Sparkles className="w-4 h-4 text-yellow-300 shrink-0" />
+            </div>
           </button>
         </div>
       )}
 
-      {/* 💬 AI CHAT DRAWER */}
+      {/* 💬 AI CHAT DRAWER - BOTTOM LEFT */}
       {isOpen && (
         <div
           className="
             fixed
-            left-1/2
-            top-1/2
-            -translate-x-1/2
-            -translate-y-1/2
+            bottom-6
+            left-4
+            sm:left-8
             z-[9999]
 
-            w-[calc(100vw-24px)]
+            w-[calc(100vw-32px)]
             sm:w-[380px]
 
-            h-[480px]
+            h-[500px]
             max-h-[80vh]
 
             bg-white
