@@ -149,8 +149,13 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
   };
 
   const handleAddToCart = () => {
-    if (product.stock < quantity) {
-      alert("Selected quantity exceeds available stock!");
+    if (product.stock <= 0) {
+      alert("Item is out of stock!");
+      return;
+    }
+
+    if (quantity > product.stock) {
+      alert(`Only ${product.stock} items left in stock!`);
       return;
     }
 
@@ -159,8 +164,10 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
       const itemIndex = existingCart.findIndex((item: any) => (item._id || item.id) === productId);
 
       if (itemIndex > -1) {
+        // Agar pehle se hai toh utni quantity increment ho jayegi
         existingCart[itemIndex].quantity = (existingCart[itemIndex].quantity || 1) + quantity;
       } else {
+        // Naya item add karo select ki hui quantity ke saath
         existingCart.push({
           _id: productId,
           id: productId,
@@ -171,7 +178,7 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
         });
       }
 
-      // Live stock minus in current product state
+      // Remaining stock screen par live deduct hoga
       setProduct((prev: any) => ({
         ...prev,
         stock: prev.stock - quantity,
@@ -179,11 +186,13 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
 
       localStorage.setItem('cart', JSON.stringify(existingCart));
 
+      // Header ya navbar cart badge refresh karne ke liye events
       window.dispatchEvent(new Event('cart-updated'));
       window.dispatchEvent(new Event('storage'));
 
+      // 2 seconds ke liye green button indicator dikhao
       setAddedToCart(true);
-      setQuantity(1);
+      setQuantity(1); // Reset counter to 1 for next addition
       setTimeout(() => setAddedToCart(false), 2000);
     } catch (error) {
       console.error("Failed to add item to cart:", error);
@@ -285,7 +294,7 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
                         : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'
                     }`}
                   >
-                    {addedToCart ? '✓ Added Successfully!' : 'Add to Shopping Cart'}
+                    {addedToCart ? '✓ Added to Cart!' : `Add ${quantity > 1 ? `${quantity} Items` : 'to Cart'}`}
                   </button>
                 ) : (
                   <button
