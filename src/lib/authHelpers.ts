@@ -43,11 +43,30 @@ export const syncUserProfile = async (user: any) => {
  */
 export const handleGoogleSignIn = async () => {
   try {
+    // Account selection prompt ensure karne ke liye
+    googleProvider.setCustomParameters({ prompt: "select_account" });
+
     const result: UserCredential = await signInWithPopup(auth, googleProvider);
     await syncUserProfile(result.user);
     return { success: true, user: result.user };
   } catch (error: any) {
     console.error("Google Auth Error:", error);
+
+    // Popup block specific error handle
+    if (error.code === "auth/popup-blocked") {
+      return { 
+        success: false, 
+        message: "Popup was blocked by your browser. Please allow popups for this site and try again." 
+      };
+    }
+
+    if (error.code === "auth/popup-closed-by-user") {
+      return { 
+        success: false, 
+        message: "Sign-in popup was closed before completing." 
+      };
+    }
+
     return { success: false, message: error.message || "Google Login Failed" };
   }
 };
@@ -61,7 +80,7 @@ export const linkGoogleAccount = async () => {
       throw new Error("No user is currently logged in.");
     }
     
-    // Logged in user ke sath Google popup link karna
+    googleProvider.setCustomParameters({ prompt: "select_account" });
     const result = await linkWithPopup(auth.currentUser, googleProvider);
     await syncUserProfile(result.user);
     

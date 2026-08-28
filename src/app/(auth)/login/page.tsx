@@ -3,13 +3,13 @@
 import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import GoogleAuthBtn from "@/components/GoogleAuthBtn"; // 👈 Google Button Import
+import GoogleAuthBtn from "@/components/GoogleAuthBtn";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // 1. Target redirect URL read karein (Priority: Checkout URL)
+  // Target redirect URL read karein (Priority: Checkout URL)
   const redirectUrl = searchParams.get("redirect") || "/checkout";
 
   const [formData, setFormData] = useState({ email: "", password: "" });
@@ -19,7 +19,7 @@ function LoginForm() {
   const [isUnverified, setIsUnverified] = useState(false);
   const [resendingOtp, setResendingOtp] = useState(false);
 
-  // 2. Auto-redirect logic: Agar user PEHLE SE logged in hai toh directly Checkout / Redirect target par bhejo
+  // Auto-redirect logic: Agar user PEHLE SE logged in hai toh directly Checkout / Redirect target par bhejo
   useEffect(() => {
     const localUser = localStorage.getItem("user");
     if (localUser) {
@@ -214,8 +214,8 @@ function LoginForm() {
           </div>
         </div>
 
-        {/* 🔘 Google Login Button */}
-        <GoogleAuthBtn text="Sign in with Google" />
+        {/* 🔘 Google Login Button with redirect target */}
+        <GoogleAuthBtn text="Sign in with Google" redirectUrl={redirectUrl} />
       </div>
     </div>
   );

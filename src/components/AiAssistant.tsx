@@ -127,7 +127,13 @@ export default function AiAssistant() {
     ]);
   };
 
-  if (pathname?.startsWith("/admin")) {
+  // Hide AI Assistant on admin panel, login, and register pages
+  if (
+    pathname?.startsWith("/admin") ||
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname?.startsWith("/auth")
+  ) {
     return null;
   }
 

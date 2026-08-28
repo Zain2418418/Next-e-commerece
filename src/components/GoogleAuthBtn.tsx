@@ -5,7 +5,12 @@ import { handleGoogleSignIn } from "@/lib/authHelpers";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
-export default function GoogleAuthBtn({ text = "Continue with Google" }: { text?: string }) {
+interface GoogleAuthBtnProps {
+  text?: string;
+  redirectUrl?: string;
+}
+
+export default function GoogleAuthBtn({ text = "Continue with Google", redirectUrl = "/" }: GoogleAuthBtnProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -13,15 +18,26 @@ export default function GoogleAuthBtn({ text = "Continue with Google" }: { text?
   const onClick = async () => {
     setLoading(true);
     setError(null);
-    const res = await handleGoogleSignIn();
 
-    if (res.success) {
-      router.push("/"); // Login ke baad home page redirect
-      router.refresh();
-    } else {
-      setError(res.message || "Google Authentication failed");
+    try {
+      const res = await handleGoogleSignIn();
+
+      if (res?.success) {
+        window.dispatchEvent(new Event("user-updated"));
+        router.push(redirectUrl);
+        router.refresh();
+      } else {
+        setError(res?.message || "Google Authentication failed. Please try again.");
+      }
+    } catch (err: any) {
+      if (err?.code === "auth/popup-blocked") {
+        setError("Popup was blocked by your browser. Please allow popups for this site.");
+      } else {
+        setError("Something went wrong with Google sign in.");
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -30,7 +46,7 @@ export default function GoogleAuthBtn({ text = "Continue with Google" }: { text?
         type="button"
         onClick={onClick}
         disabled={loading}
-        className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium py-2.5 px-4 rounded-xl border border-gray-300 dark:border-gray-600 shadow-sm transition-all duration-200 disabled:opacity-50"
+        className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium py-2.5 px-4 rounded-xl border border-gray-300 dark:border-gray-600 shadow-sm transition-all duration-200 disabled:opacity-50 cursor-pointer"
       >
         {loading ? (
           <Loader2 className="w-5 h-5 animate-spin text-indigo-600" />

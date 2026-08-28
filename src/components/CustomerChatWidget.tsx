@@ -94,8 +94,13 @@ export default function CustomerChatWidget() {
     });
   };
 
-  // 🚫 Admin routes ya Admin Login page par Live Chat bubble show nahi hoga
-  if (pathname?.startsWith("/admin")) {
+  // 🚫 Admin, Login, Register, ya Auth routes par Live Chat bubble show nahi hoga
+  if (
+    pathname?.startsWith("/admin") ||
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname?.startsWith("/auth")
+  ) {
     return null;
   }
 
