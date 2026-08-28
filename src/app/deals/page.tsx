@@ -11,13 +11,14 @@ export default function DealsPage() {
 
   useEffect(() => {
     async function fetchDeals() {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000); // 6 Sec Timeout to prevent page hang
+
       try {
         setLoading(true);
-        const res = await fetch('/api/products');
+        const res = await fetch('/api/products', { signal: controller.signal });
         
-        if (!res.ok) {
-          throw new Error(`HTTP Error: ${res.status}`);
-        }
+        if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
 
         const data = await res.json();
         const allProducts = Array.isArray(data) 
@@ -37,12 +38,12 @@ export default function DealsPage() {
           return hasIsDeal || hasDiscount || hasSalePrice;
         });
 
-        // Agar deal items milein toh wo dikhayein, warna direct allProducts dikhayein
         setProducts(dealItems.length > 0 ? dealItems : allProducts);
-      } catch (err) {
-        console.error('Error fetching deals:', err);
-        setProducts([]);
+      } catch (err: any) {
+        console.error('Fetch Deals Error:', err?.message || err);
+        setProducts([]); // Safe UI fallback instead of crash
       } finally {
+        clearTimeout(timeoutId);
         setLoading(false);
       }
     }
