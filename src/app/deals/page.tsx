@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Tag, Sparkles, Loader2, ShoppingBag, Flame } from 'lucide-react';
+import { Sparkles, Loader2, ShoppingBag, Flame } from 'lucide-react';
 
 export default function DealsPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -12,21 +12,36 @@ export default function DealsPage() {
   useEffect(() => {
     async function fetchDeals() {
       try {
+        setLoading(true);
         const res = await fetch('/api/products');
-        if (res.ok) {
-          const data = await res.json();
-          const allProducts = Array.isArray(data) ? data : data.products || [];
-
-          // Discounted products filter karein safely
-          const dealItems = allProducts.filter(
-            (p: any) => p && (p.isDeal || (p.discount && Number(p.discount) > 0) || (p.salePrice && Number(p.salePrice) < Number(p.price)))
-          );
-
-          // Agar discounted items hon toh wo dikhayein, nahi toh sab items fallback
-          setProducts(dealItems.length > 0 ? dealItems : allProducts);
+        
+        if (!res.ok) {
+          throw new Error(`HTTP Error: ${res.status}`);
         }
+
+        const data = await res.json();
+        const allProducts = Array.isArray(data) 
+          ? data 
+          : Array.isArray(data?.products) 
+          ? data.products 
+          : Array.isArray(data?.data) 
+          ? data.data 
+          : [];
+
+        // Safe filter with full null checks
+        const dealItems = allProducts.filter((p: any) => {
+          if (!p || typeof p !== 'object') return false;
+          const hasIsDeal = Boolean(p.isDeal);
+          const hasDiscount = Boolean(p.discount && Number(p.discount) > 0);
+          const hasSalePrice = Boolean(p.salePrice && Number(p.salePrice) < Number(p.price));
+          return hasIsDeal || hasDiscount || hasSalePrice;
+        });
+
+        // Agar deal items milein toh wo dikhayein, warna direct allProducts dikhayein
+        setProducts(dealItems.length > 0 ? dealItems : allProducts);
       } catch (err) {
         console.error('Error fetching deals:', err);
+        setProducts([]);
       } finally {
         setLoading(false);
       }
@@ -85,7 +100,7 @@ export default function DealsPage() {
             <div className="flex justify-center py-20">
               <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
             </div>
-          ) : products.length === 0 ? (
+          ) : !Array.isArray(products) || products.length === 0 ? (
             <div className="text-center py-16 bg-white rounded-3xl border border-slate-200">
               <ShoppingBag className="w-12 h-12 text-slate-300 mx-auto mb-3" />
               <h3 className="text-base font-bold text-slate-800">No deals found right now</h3>
@@ -93,8 +108,8 @@ export default function DealsPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {products.map((product) => {
-                if (!product) return null;
+              {products.map((product, idx) => {
+                if (!product || typeof product !== 'object') return null;
 
                 const rawOriginal = Number(product.price) || 0;
                 const discount = Number(product.discount) || 15;
@@ -105,11 +120,11 @@ export default function DealsPage() {
                 const originalPrice = isNaN(rawOriginal) ? 0 : rawOriginal;
                 const discountedPrice = isNaN(rawDiscounted) ? 0 : rawDiscounted;
                 const productImage = product.image || (Array.isArray(product.images) && product.images[0]) || '';
-                const productId = product._id || product.id || '';
+                const productId = product._id || product.id || `product-${idx}`;
 
                 return (
                   <div
-                    key={productId || Math.random()}
+                    key={productId}
                     className="group bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm hover:shadow-xl hover:border-indigo-600 transition duration-300 flex flex-col justify-between"
                   >
                     <div>
@@ -152,14 +167,14 @@ export default function DealsPage() {
                         </span>
                       </div>
 
-                      {productId && (
+                      {product._id || product.id ? (
                         <Link
-                          href={`/shop/${productId}`}
+                          href={`/shop/${product._id || product.id}`}
                           className="px-3.5 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-indigo-600 transition"
                         >
                           View
                         </Link>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 );
