@@ -1,3 +1,4 @@
+// 📁 src/app/api/products/route.ts
 import { NextResponse } from 'next/server';
 import dbconnect from '@/lib/dbConnect';
 import Product from '@/models/Product';
@@ -7,12 +8,12 @@ export async function GET() {
   try {
     await dbconnect();
 
-    // Ensures Category Schema is registered in Mongoose
+    // Ensures Category Schema is registered in Mongoose cache
     if (Category && Category.modelName) {
       // Prevents import tree-shaking
     }
 
-    let products;
+    let products = [];
     try {
       products = await Product.find({}).populate('category').lean();
     } catch (populateError) {
@@ -20,12 +21,12 @@ export async function GET() {
       products = await Product.find({}).lean();
     }
 
+    // Always return safe array response
     return NextResponse.json(products || [], { status: 200 });
   } catch (error: any) {
-    console.error('API Error in GET /api/products:', error);
-    return NextResponse.json(
-      { error: error?.message || 'Failed to fetch products' },
-      { status: 500 }
-    );
+    console.error('API Error in GET /api/products:', error?.message || error);
+    
+    // Return empty array with 200 status so frontend pages never crash on DB error
+    return NextResponse.json([], { status: 200 });
   }
 }
