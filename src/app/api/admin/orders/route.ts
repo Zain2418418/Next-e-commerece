@@ -13,17 +13,18 @@ export async function GET() {
     if (!User) console.log('User model loaded');
     if (!Product) console.log('Product model loaded');
 
-    // Fetch orders safely with user details populated
+    // Select name, fullName, username and email to prevent schema key mismatches
     const orders = await Order.find()
       .populate({
         path: 'user',
-        select: 'name email',
+        select: 'name fullName username email',
       })
       .populate({
         path: 'items.product',
         select: 'name price image',
       })
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     return NextResponse.json(
       {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { ShoppingBag, Loader2, Printer, X, FileText, CheckCircle2 } from 'lucide-react';
 
 interface OrderItem {
@@ -18,12 +18,15 @@ interface Order {
   _id: string;
   user?: {
     _id?: string;
-    name: string;
-    email: string;
+    name?: string;
+    fullName?: string;
+    email?: string;
   };
+  customerName?: string;
   customerEmail?: string;
   shippingAddress?: {
     fullName?: string;
+    name?: string;
     address?: string;
     city?: string;
     phone?: string;
@@ -97,6 +100,24 @@ export default function AdminOrdersPage() {
     window.print();
   };
 
+  // Helper function to safely extract Customer Name
+  const resolveCustomerName = (order: Order) => {
+    if (order.user?.name) return order.user.name;
+    if (order.user?.fullName) return order.user.fullName;
+    if (order.customerName) return order.customerName;
+    if (order.shippingAddress?.fullName) return order.shippingAddress.fullName;
+    if (order.shippingAddress?.name) return order.shippingAddress.name;
+
+    // Email Fallback (e.g., "zainulabedeen2418" from "zainulabedeen2418@gmail.com")
+    const email = order.user?.email || order.customerEmail;
+    if (email && email.includes('@')) {
+      const emailPrefix = email.split('@')[0];
+      return emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+    }
+
+    return 'Registered Customer';
+  };
+
   // Helper function for status badges
   const getStatusBadge = (status: string = 'Pending') => {
     switch (status.toLowerCase()) {
@@ -157,8 +178,7 @@ export default function AdminOrdersPage() {
                   </tr>
                 ) : (
                   orders.map((order) => {
-                    const customerName =
-                      order.user?.name || order.shippingAddress?.fullName || 'Guest User';
+                    const customerName = resolveCustomerName(order);
                     const customerEmail =
                       order.user?.email || order.customerEmail || 'N/A';
 
@@ -225,7 +245,7 @@ export default function AdminOrdersPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:static print:p-0 print:bg-white print:backdrop-none">
           <div className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto print:max-h-none print:shadow-none print:w-full print:rounded-none p-6 md:p-10 border border-gray-200 dark:border-gray-800 print:border-none">
             
-            {/* Modal Actions Bar (Hidden on Print) */}
+            {/* Modal Actions Bar */}
             <div className="flex justify-between items-center pb-6 border-b border-gray-200 dark:border-gray-800 mb-6 print:hidden">
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
                 <CheckCircle2 size={16} /> Official Store Receipt
@@ -248,7 +268,6 @@ export default function AdminOrdersPage() {
 
             {/* Printable Invoice Container */}
             <div id="printable-invoice" className="space-y-8">
-              {/* Header */}
               <div className="flex justify-between items-start">
                 <div>
                   <h2 className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white">INVOICE</h2>
@@ -292,7 +311,7 @@ export default function AdminOrdersPage() {
                 <div>
                   <p className="font-bold uppercase tracking-wider text-gray-400 mb-2">Customer Info</p>
                   <p className="font-semibold text-sm text-gray-900 dark:text-white print:text-black">
-                    {selectedInvoice.user?.name || selectedInvoice.shippingAddress?.fullName || 'Valued Customer'}
+                    {resolveCustomerName(selectedInvoice)}
                   </p>
                   <p className="text-gray-500 mt-0.5">
                     {selectedInvoice.user?.email || selectedInvoice.customerEmail || 'No email registered'}
