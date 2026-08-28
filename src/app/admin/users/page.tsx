@@ -197,7 +197,7 @@ export default function AdminUsersPage() {
               setSearchQuery(e.target.value);
               setCurrentPage(1); // Reset to first page
             }}
-            className="w-full pl-10 pr-4 py-2 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full pl-10 pr-4 py-2 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 dark:text-white"
           />
         </div>
 
@@ -210,11 +210,11 @@ export default function AdminUsersPage() {
               setRoleFilter(e.target.value);
               setCurrentPage(1);
             }}
-            className="px-3 py-2 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="px-3 py-2 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
-            <option value="all">All Roles</option>
-            <option value="user">Customers (Users)</option>
-            <option value="admin">Admins</option>
+            <option value="all" className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">All Roles</option>
+            <option value="user" className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">Customers (Users)</option>
+            <option value="admin" className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">Admins</option>
           </select>
         </div>
       </div>
@@ -278,8 +278,8 @@ export default function AdminUsersPage() {
                                 : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800'
                             }`}
                           >
-                            <option value="user">User</option>
-                            <option value="admin">Admin</option>
+                            <option value="user" className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">User</option>
+                            <option value="admin" className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">Admin</option>
                           </select>
                         </td>
 

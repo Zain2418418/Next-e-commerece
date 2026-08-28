@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import Order from '@/models/Order';
+import Notification from '@/models/Notification'; // Ensure Notification model exists or handle fallback safely
 
 export async function PATCH(
   req: NextRequest,
@@ -29,6 +30,22 @@ export async function PATCH(
         { success: false, error: 'Order not found' },
         { status: 404 }
       );
+    }
+
+    // 🔔 Issue #13 Fix: Trigger User Notification on Status Change
+    if (updatedOrder.user) {
+      try {
+        await Notification.create({
+          user: updatedOrder.user,
+          title: `Order Status Updated`,
+          message: `Your order #${updatedOrder._id.toString().substring(updatedOrder._id.toString().length - 8)} status has been changed to "${body.status}".`,
+          type: 'order',
+          read: false,
+          createdAt: new Date(),
+        });
+      } catch (notifErr) {
+        console.error('Notification creation warning:', notifErr);
+      }
     }
 
     return NextResponse.json({

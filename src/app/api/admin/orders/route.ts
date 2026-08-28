@@ -1,26 +1,27 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import Order from '@/models/Order';
-// IMPORTANT: User & Product models ko import karna zaruri hai taake populate kaam kare
-import '@/models/User'; 
-import '@/models/Product'; 
+import User from '@/models/User';
+import Product from '@/models/Product';
 
 // 1. GET: Fetch All Orders for Admin Panel
 export async function GET() {
   try {
     await dbConnect();
 
-    // Fetch orders safely
+    // Ensure models are registered in Mongoose schema cache
+    if (!User) console.log('User model loaded');
+    if (!Product) console.log('Product model loaded');
+
+    // Fetch orders safely with user details populated
     const orders = await Order.find()
       .populate({
         path: 'user',
         select: 'name email',
-        strictPopulate: false,
       })
       .populate({
         path: 'items.product',
         select: 'name price image',
-        strictPopulate: false,
       })
       .sort({ createdAt: -1 });
 
