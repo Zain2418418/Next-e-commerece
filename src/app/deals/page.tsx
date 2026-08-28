@@ -17,9 +17,9 @@ export default function DealsPage() {
           const data = await res.json();
           const allProducts = Array.isArray(data) ? data : data.products || [];
 
-          // Discounted products filter karein
+          // Discounted products filter karein safely
           const dealItems = allProducts.filter(
-            (p: any) => p.isDeal || (p.discount && p.discount > 0) || (p.salePrice && p.salePrice < p.price)
+            (p: any) => p && (p.isDeal || (p.discount && Number(p.discount) > 0) || (p.salePrice && Number(p.salePrice) < Number(p.price)))
           );
 
           // Agar discounted items hon toh wo dikhayein, nahi toh sab items fallback
@@ -94,22 +94,31 @@ export default function DealsPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {products.map((product) => {
-                const originalPrice = product.price || 0;
-                const discount = product.discount || 15; // default 15% display if not set
-                const discountedPrice = product.salePrice || (originalPrice * (1 - discount / 100)).toFixed(2);
+                if (!product) return null;
+
+                const rawOriginal = Number(product.price) || 0;
+                const discount = Number(product.discount) || 15;
+                const rawDiscounted = product.salePrice 
+                  ? Number(product.salePrice) 
+                  : (rawOriginal * (1 - discount / 100));
+
+                const originalPrice = isNaN(rawOriginal) ? 0 : rawOriginal;
+                const discountedPrice = isNaN(rawDiscounted) ? 0 : rawDiscounted;
+                const productImage = product.image || (Array.isArray(product.images) && product.images[0]) || '';
+                const productId = product._id || product.id || '';
 
                 return (
                   <div
-                    key={product._id || product.id}
+                    key={productId || Math.random()}
                     className="group bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm hover:shadow-xl hover:border-indigo-600 transition duration-300 flex flex-col justify-between"
                   >
                     <div>
                       {/* Product Image Container */}
                       <div className="relative w-full h-48 bg-slate-100 rounded-2xl overflow-hidden mb-4 flex items-center justify-center">
-                        {product.image ? (
+                        {productImage ? (
                           <img
-                            src={product.image}
-                            alt={product.name}
+                            src={productImage}
+                            alt={product.name || 'Product Image'}
                             className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                           />
                         ) : (
@@ -126,27 +135,31 @@ export default function DealsPage() {
                         {product.category || 'Deal'}
                       </span>
                       <h3 className="text-base font-bold text-slate-900 mt-1 line-clamp-1">
-                        {product.name}
+                        {product.name || 'Untitled Product'}
                       </h3>
                     </div>
 
                     {/* Price & Action */}
                     <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
                       <div>
-                        <span className="text-xs text-slate-400 line-through mr-2">
-                          ${Number(originalPrice).toFixed(2)}
-                        </span>
+                        {originalPrice > 0 && (
+                          <span className="text-xs text-slate-400 line-through mr-2">
+                            ${originalPrice.toFixed(2)}
+                          </span>
+                        )}
                         <span className="text-lg font-black text-rose-600">
-                          ${Number(discountedPrice).toFixed(2)}
+                          ${discountedPrice.toFixed(2)}
                         </span>
                       </div>
 
-                      <Link
-                        href={`/shop/${product._id || product.id}`}
-                        className="px-3.5 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-indigo-600 transition"
-                      >
-                        View
-                      </Link>
+                      {productId && (
+                        <Link
+                          href={`/shop/${productId}`}
+                          className="px-3.5 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-indigo-600 transition"
+                        >
+                          View
+                        </Link>
+                      )}
                     </div>
                   </div>
                 );

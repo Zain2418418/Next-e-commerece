@@ -16,31 +16,30 @@ export async function GET() {
   try {
     await dbconnect();
     const subscribers = await Subscriber.find({}).sort({ createdAt: -1 });
-    
-    // Formatting response to match Frontend requirements
+
     const formattedSubscribers = subscribers.map((sub) => ({
       id: sub._id.toString(),
       email: sub.email,
       subscribedAt: sub.createdAt,
     }));
 
-    return NextResponse.json({ subscribers: formattedSubscribers }, { status: 200 });
+    return NextResponse.json({ success: true, subscribers: formattedSubscribers }, { status: 200 });
   } catch (error: any) {
     console.error("Fetch Subscribers Error:", error);
     return NextResponse.json(
-      { success: false, message: "Failed to fetch subscribers." },
+      { success: false, error: "Failed to fetch subscribers." },
       { status: 500 }
     );
   }
 }
 
-// 2. POST: Handle both User Subscriptions & Admin Email Broadcasts
+// 2. POST: Handle User Subscriptions & Admin Broadcasts
 export async function POST(req: Request) {
   try {
     await dbconnect();
     const body = await req.json();
 
-    // CASE A: Admin Sending Broadcast Email to all subscribers
+    // CASE A: Admin Sending Broadcast Email
     if (body.subject && body.content) {
       const { subject, content } = body;
       const subscribers = await Subscriber.find({});
@@ -48,12 +47,11 @@ export async function POST(req: Request) {
 
       if (emails.length === 0) {
         return NextResponse.json(
-          { success: false, message: "No subscribers found to send emails." },
+          { success: false, error: "No subscribers found to send emails." },
           { status: 400 }
         );
       }
 
-      // TODO: Integrate your Email Provider here (e.g. Resend, Nodemailer, SendGrid)
       console.log(`Sending Email - Subject: "${subject}" to ${emails.length} subscribers.`);
 
       return NextResponse.json({
@@ -67,12 +65,12 @@ export async function POST(req: Request) {
 
     if (!email || !email.includes("@")) {
       return NextResponse.json(
-        { success: false, message: "Please provide a valid email address." },
+        { success: false, error: "Please provide a valid email address." },
         { status: 400 }
       );
     }
 
-    // Check if already subscribed
+    // Duplicate Check
     const existing = await Subscriber.findOne({ email });
     if (existing) {
       return NextResponse.json(
@@ -90,7 +88,7 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error("Newsletter API Error:", error);
     return NextResponse.json(
-      { success: false, message: "An error occurred. Please try again later." },
+      { success: false, error: "An error occurred. Please try again later." },
       { status: 500 }
     );
   }
@@ -105,7 +103,7 @@ export async function DELETE(req: Request) {
 
     if (!id) {
       return NextResponse.json(
-        { success: false, message: "Subscriber ID is required." },
+        { success: false, error: "Subscriber ID is required." },
         { status: 400 }
       );
     }
@@ -119,7 +117,7 @@ export async function DELETE(req: Request) {
   } catch (error: any) {
     console.error("Delete Subscriber Error:", error);
     return NextResponse.json(
-      { success: false, message: "Failed to delete subscriber." },
+      { success: false, error: "Failed to delete subscriber." },
       { status: 500 }
     );
   }
