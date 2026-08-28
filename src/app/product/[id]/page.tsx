@@ -17,9 +17,8 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
   const [loading, setLoading] = useState<boolean>(true);
   const [hasError, setHasError] = useState<boolean>(false);
 
-  const [quantity, setQuantity] = useState(1);
-  const [addedToCart, setAddedToCart] = useState(false);
-  const [isInWishlist, setIsInWishlist] = useState(false);
+  const [cartQuantity, setCartQuantity] = useState<number>(0);
+  const [isInWishlist, setIsInWishlist] = useState<boolean>(false);
 
   const getProductImage = (prod: any) => {
     const img = prod?.image;
@@ -57,18 +56,7 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
 
         if (res.ok && (result.data || result._id || result.id)) {
           const rawProduct = result.data || result;
-          const productId = rawProduct._id || rawProduct.id;
-
-          // Deduct stock based on items already in cart
-          const existingCart = JSON.parse(localStorage.getItem('cart') || '[]');
-          const cartItem = existingCart.find((i: any) => (i._id || i.id) === productId);
-          const cartQty = cartItem ? (cartItem.quantity || 1) : 0;
-          const initialStock = rawProduct.stock !== undefined ? rawProduct.stock : 10;
-
-          setProduct({
-            ...rawProduct,
-            stock: Math.max(0, initialStock - cartQty),
-          });
+          setProduct(rawProduct);
         } else {
           setHasError(true);
         }
@@ -85,11 +73,19 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
     }
   }, [resolvedParams.id]);
 
+  // Sync Cart Quantity & Wishlist from localStorage
   useEffect(() => {
     if (!product) return;
+    const productId = product._id || product.id;
+
     try {
+      // Cart check
+      const existingCart = JSON.parse(localStorage.getItem('cart') || '[]');
+      const cartItem = existingCart.find((item: any) => (item._id || item.id) === productId);
+      setCartQuantity(cartItem ? cartItem.quantity || 1 : 0);
+
+      // Wishlist check
       const savedWishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
-      const productId = product._id || product.id;
       const exists = savedWishlist.some((item: any) => (item._id || item.id) === productId);
       setIsInWishlist(exists);
     } catch (e) {
@@ -148,54 +144,45 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
     }
   };
 
-  const handleAddToCart = () => {
-    if (product.stock <= 0) {
-      alert("Item is out of stock!");
-      return;
-    }
-
-    if (quantity > product.stock) {
-      alert(`Only ${product.stock} items left in stock!`);
+  const handleUpdateCartQuantity = (newQty: number) => {
+    const maxStock = product.stock !== undefined ? product.stock : 10;
+    
+    if (newQty > maxStock) {
+      alert(`Only ${maxStock} items available in stock!`);
       return;
     }
 
     try {
-      const existingCart = JSON.parse(localStorage.getItem('cart') || '[]');
+      let existingCart = JSON.parse(localStorage.getItem('cart') || '[]');
       const itemIndex = existingCart.findIndex((item: any) => (item._id || item.id) === productId);
 
-      if (itemIndex > -1) {
-        // Agar pehle se hai toh utni quantity increment ho jayegi
-        existingCart[itemIndex].quantity = (existingCart[itemIndex].quantity || 1) + quantity;
+      if (newQty <= 0) {
+        // Remove from cart if quantity goes to 0
+        existingCart = existingCart.filter((item: any) => (item._id || item.id) !== productId);
+        setCartQuantity(0);
       } else {
-        // Naya item add karo select ki hui quantity ke saath
-        existingCart.push({
-          _id: productId,
-          id: productId,
-          name: product.name,
-          price: product.price,
-          image: imgSrc,
-          quantity: quantity,
-        });
+        if (itemIndex > -1) {
+          existingCart[itemIndex].quantity = newQty;
+        } else {
+          existingCart.push({
+            _id: productId,
+            id: productId,
+            name: product.name,
+            price: product.price,
+            image: imgSrc,
+            quantity: newQty,
+          });
+        }
+        setCartQuantity(newQty);
       }
-
-      // Remaining stock screen par live deduct hoga
-      setProduct((prev: any) => ({
-        ...prev,
-        stock: prev.stock - quantity,
-      }));
 
       localStorage.setItem('cart', JSON.stringify(existingCart));
 
-      // Header ya navbar cart badge refresh karne ke liye events
+      // Trigger cart event for navbar badge update
       window.dispatchEvent(new Event('cart-updated'));
       window.dispatchEvent(new Event('storage'));
-
-      // 2 seconds ke liye green button indicator dikhao
-      setAddedToCart(true);
-      setQuantity(1); // Reset counter to 1 for next addition
-      setTimeout(() => setAddedToCart(false), 2000);
     } catch (error) {
-      console.error("Failed to add item to cart:", error);
+      console.error("Failed to update cart:", error);
     }
   };
 
@@ -259,49 +246,45 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
               <div className="flex justify-between items-center text-sm">
                 <span className="text-slate-500 font-medium">Status / Stock</span>
                 <span className={`font-bold ${product.stock > 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
-                  {product.stock > 0 ? `In Stock (${product.stock} left)` : 'Out of Stock'}
+                  {product.stock > 0 ? `In Stock (${product.stock} available)` : 'Out of Stock'}
                 </span>
               </div>
 
-              {product.stock > 0 && (
-                <div className="flex justify-between items-center text-sm border-t border-slate-200/60 pt-4">
-                  <span className="text-slate-500 font-medium">Quantity</span>
-                  <div className="flex items-center border border-slate-300 rounded-xl overflow-hidden bg-white shadow-sm">
-                    <button
-                      onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
-                      className="px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 transition font-bold text-slate-700"
-                    >
-                      -
-                    </button>
-                    <span className="px-4 py-1 text-sm font-bold w-12 text-center text-slate-900 select-none">{quantity}</span>
-                    <button
-                      onClick={() => setQuantity((prev) => Math.min(product.stock, prev + 1))}
-                      className="px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 transition font-bold text-slate-700"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              )}
-
+              {/* Action Area: Add to Cart Toggle Button & Wishlist */}
               <div className="pt-2 flex items-center gap-3">
-                {product.stock > 0 ? (
-                  <button
-                    onClick={handleAddToCart}
-                    className={`flex-1 flex items-center justify-center px-6 py-3.5 rounded-xl text-sm font-bold text-white shadow-md transition-all duration-300 active:scale-[0.98] ${
-                      addedToCart 
-                        ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200' 
-                        : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'
-                    }`}
-                  >
-                    {addedToCart ? '✓ Added to Cart!' : `Add ${quantity > 1 ? `${quantity} Items` : 'to Cart'}`}
-                  </button>
-                ) : (
+                {product.stock <= 0 ? (
                   <button
                     disabled
                     className="flex-1 flex items-center justify-center px-6 py-3.5 rounded-xl text-sm font-bold bg-slate-200 text-slate-400 cursor-not-allowed"
                   >
                     Out of Stock
+                  </button>
+                ) : cartQuantity > 0 ? (
+                  /* Toggle UI when item is in cart */
+                  <div className="flex-1 flex items-center justify-between border-2 border-indigo-600 rounded-xl p-1 bg-indigo-50/50 shadow-sm">
+                    <button
+                      onClick={() => handleUpdateCartQuantity(cartQuantity - 1)}
+                      className="px-4 py-2 bg-white text-indigo-600 rounded-lg font-extrabold hover:bg-indigo-100 transition shadow-sm active:scale-95"
+                    >
+                      -
+                    </button>
+                    <span className="text-sm font-bold text-indigo-900 select-none">
+                      {cartQuantity} in Cart
+                    </span>
+                    <button
+                      onClick={() => handleUpdateCartQuantity(cartQuantity + 1)}
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-extrabold hover:bg-indigo-700 transition shadow-sm active:scale-95"
+                    >
+                      +
+                    </button>
+                  </div>
+                ) : (
+                  /* Standard Add to Cart button when not in cart */
+                  <button
+                    onClick={() => handleUpdateCartQuantity(1)}
+                    className="flex-1 flex items-center justify-center px-6 py-3.5 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-200 transition-all active:scale-[0.98]"
+                  >
+                    Add to Cart
                   </button>
                 )}
 
